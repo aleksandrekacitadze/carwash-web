@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 
@@ -13,16 +13,15 @@ type WalletMe = {
   updatedAt?: string;
 };
 
-export default function SubscriptionSuccessPage() {
+function SubscriptionSuccessInner() {
   const router = useRouter();
   const sp = useSearchParams();
 
-  // Support multiple param names (because PayPal integrations differ)
   const providerOrderId = useMemo(() => {
     return (
-      sp.get("providerOrderId") || // ✅ our recommended param
-      sp.get("token") || // PayPal often returns token=
-      sp.get("orderId") || // fallback
+      sp.get("providerOrderId") ||
+      sp.get("token") ||
+      sp.get("orderId") ||
       ""
     );
   }, [sp]);
@@ -41,12 +40,10 @@ export default function SubscriptionSuccessPage() {
     }
 
     try {
-      // ✅ capture subscription payment + activate subscription + add credits (backend should do this)
       const cap = await api.post<CaptureResp>(
         `/subscriptions/paypal/capture/${providerOrderId}`
       );
 
-      // if backend returns ok true -> success
       if ((cap.data as any)?.ok === false) {
         setStatus("error");
         setMessage((cap.data as any).message || "Capture failed.");
@@ -59,12 +56,10 @@ export default function SubscriptionSuccessPage() {
         );
       }
 
-      // ✅ refresh wallet
       try {
         const w = await api.get<WalletMe>("/wallet/me");
         setWallet(w.data);
       } catch {
-        // wallet endpoint might not exist yet
         setWallet(null);
       }
     } catch (e: any) {
@@ -80,7 +75,6 @@ export default function SubscriptionSuccessPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [providerOrderId]);
 
-  // auto redirect after success
   useEffect(() => {
     if (status !== "success") return;
     const t = setTimeout(() => {
@@ -139,6 +133,26 @@ export default function SubscriptionSuccessPage() {
         )}
       </div>
     </main>
+  );
+}
+
+export default function SubscriptionSuccessPage() {
+  return (
+    <Suspense
+      fallback={
+        <main style={S.page}>
+          <div style={S.card}>
+            <h1 style={S.title}>Subscription Result</h1>
+            <div style={S.box}>
+              <div style={S.big}>Loading…</div>
+              <div style={S.small}>Preparing subscription result.</div>
+            </div>
+          </div>
+        </main>
+      }
+    >
+      <SubscriptionSuccessInner />
+    </Suspense>
   );
 }
 
