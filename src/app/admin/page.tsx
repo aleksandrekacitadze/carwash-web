@@ -295,7 +295,9 @@ export default function AdminDashboardPage() {
           <a href="/admin/orders" style={S.btnGhost}>Orders</a>
           <a href="/admin/users" style={S.btnGhost}>Users</a>
           <a href="/admin/support" style={S.btnGhost}>Support</a>
+          <a href="/admin/services" style={S.btnGhost}>Services</a>
           <button style={S.btnGhost} onClick={loadAll}>Refresh</button>
+          
         </div>
       </header>
 
@@ -362,6 +364,7 @@ export default function AdminDashboardPage() {
                 <a href="/admin/subscriptions" style={S.quickLink}>View Subscriptions</a>
                 <a href="/admin/reviews" style={S.quickLink}>View Reviews</a>
                 <a href="/admin/support" style={S.quickLink}>Support Chats</a>
+                <a href="/admin/services" style={S.quickLink}>Manage Services</a>
               </div>
             </div>
           </section>
