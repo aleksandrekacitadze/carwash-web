@@ -15,6 +15,8 @@ type OrderStatus =
   | "CANCEL_REQUESTED"
   | "CANCELED";
 
+type PaymentMethod = "CASH" | "CARD";
+
 type Order = {
   id: number;
   customerId: number;
@@ -27,6 +29,10 @@ type Order = {
   scheduledAt: string;
   notes: string | null;
   status: OrderStatus;
+
+  paymentMethod: PaymentMethod;
+  isPaid: boolean;
+  paidAt: string | null;
 
   acceptedAt: string | null;
   cancelRequestedAt: string | null;
@@ -142,6 +148,11 @@ function WasherOrderInner() {
     );
   }, [order]);
 
+  const showCashCollectedButton = useMemo(() => {
+    if (!order) return false;
+    return order.paymentMethod === "CASH" && !order.isPaid && order.status === "DONE";
+  }, [order]);
+
   async function fetchOrder() {
     if (!orderId) {
       setErr("Missing orderId. Open from Jobs page after accepting.");
@@ -188,6 +199,20 @@ function WasherOrderInner() {
     } finally {
       setUpdating(false);
       resetSlider();
+    }
+  }
+
+  async function markCashCollected() {
+    if (!order) return;
+
+    try {
+      setUpdating(true);
+      await api.patch(`/orders/${order.id}/cash-collected`);
+      await fetchOrder();
+    } catch (e: any) {
+      alert(e?.response?.data?.message || e?.message || "Failed to mark cash collected");
+    } finally {
+      setUpdating(false);
     }
   }
 
@@ -491,6 +516,16 @@ function WasherOrderInner() {
                   {updating ? "Updating…" : `Set ${nextStatus}`}
                 </button>
               ) : null}
+
+              {showCashCollectedButton ? (
+                <button
+                  style={S.btnCash}
+                  onClick={markCashCollected}
+                  disabled={updating}
+                >
+                  {updating ? "Processing…" : "💵 Cash Collected"}
+                </button>
+              ) : null}
             </div>
           </section>
 
@@ -551,6 +586,20 @@ function WasherOrderInner() {
               </div>
 
               <div style={S.kv}>
+                <div style={S.k}>Payment</div>
+                <div style={S.v}>
+                  {order.paymentMethod} • {order.isPaid ? "Paid ✅" : "Pending"}
+                </div>
+              </div>
+
+              {order.paidAt ? (
+                <div style={S.kv}>
+                  <div style={S.k}>Paid at</div>
+                  <div style={S.v}>{new Date(order.paidAt).toLocaleString()}</div>
+                </div>
+              ) : null}
+
+              <div style={S.kv}>
                 <div style={S.k}>Live GPS</div>
                 <div style={S.v}>{gpsStatusText}</div>
               </div>
@@ -560,6 +609,7 @@ function WasherOrderInner() {
               Backend endpoints used by this page:
               <br />• GET <b>/orders/washer/my</b> (load assigned order)
               <br />• PATCH <b>/orders/:id/status</b> (update status)
+              <br />• PATCH <b>/orders/:id/cash-collected</b> (mark cash payment collected)
               <br />• POST <b>/users/me/location</b> (send washer live GPS)
             </div>
           </section>
@@ -639,6 +689,17 @@ const S: Record<string, React.CSSProperties> = {
     fontWeight: 950,
     background: "#3cffb1",
     color: "#062112",
+  },
+  btnCash: {
+    width: "100%",
+    marginTop: 10,
+    padding: "12px 12px",
+    borderRadius: 14,
+    border: "none",
+    cursor: "pointer",
+    fontWeight: 950,
+    background: "#ffd166",
+    color: "#1a1a1a",
   },
 
   statusTop: { display: "flex", alignItems: "center", gap: 12 },
