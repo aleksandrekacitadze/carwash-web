@@ -104,6 +104,7 @@ export default function OrderReviewPage() {
 
   useEffect(() => {
     loadOrder();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId]);
 
   const canReview = useMemo(() => {
@@ -128,6 +129,10 @@ export default function OrderReviewPage() {
       });
 
       setDone(true);
+
+      setTimeout(() => {
+        router.push("/customer/dashboard");
+      }, 1200);
     } catch (e: any) {
       alert(e?.response?.data?.message || e?.message || "Failed to submit review.");
     } finally {
@@ -153,6 +158,11 @@ export default function OrderReviewPage() {
           <button style={S.btnGhost} onClick={() => router.push("/customer/dashboard")}>
             Dashboard
           </button>
+            {/* ✅ NEW: Skip button */}
+  <button style={S.btnSkip} onClick={() => router.push("/customer/dashboard")}>
+    ✕ Skip
+  </button>
+
         </div>
       </header>
 
@@ -212,11 +222,16 @@ export default function OrderReviewPage() {
             ) : done ? (
               <div style={S.successBox}>
                 <div style={S.successTitle}>Thank you ✅</div>
-                <div style={S.successText}>Your review has been submitted.</div>
+                <div style={S.successText}>
+                  Your review has been submitted. Redirecting to dashboard...
+                </div>
 
                 <div style={S.afterActions}>
-                  <button style={S.btnPrimary} onClick={() => router.push("/orders/my")}>
-                    Back to my orders
+                  <button
+                    style={S.btnPrimary}
+                    onClick={() => router.push("/customer/dashboard")}
+                  >
+                    Go to dashboard
                   </button>
                 </div>
               </div>
@@ -408,7 +423,15 @@ const S: Record<string, React.CSSProperties> = {
     fontWeight: 900,
     opacity: 0.95,
   },
-
+btnSkip: {
+  background: "rgba(255,255,255,0.08)",
+  color: "#ff6b6b",
+  padding: "10px 12px",
+  borderRadius: 14,
+  fontWeight: 900,
+  border: "1px solid rgba(255,107,107,0.4)",
+  cursor: "pointer",
+},
   ratingBlock: {
     marginTop: 14,
   },
