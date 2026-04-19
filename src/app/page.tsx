@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import CustomerDashboardPage from "./customer/dashboard/page";
+import AutoReviewRedirect from "@/components/AutoReviewRedirect";
 
 function getTokenSafe() {
   if (typeof window === "undefined") return "";
@@ -24,7 +25,6 @@ export default function Home() {
     }
   }, [router]);
 
-  // ✅ Always render the SAME thing on server + first client paint
   if (!ready) {
     return (
       <main style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
@@ -33,7 +33,6 @@ export default function Home() {
     );
   }
 
-  // After mount:
   if (!hasToken) {
     return (
       <main style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
@@ -42,5 +41,10 @@ export default function Home() {
     );
   }
 
-  return <CustomerDashboardPage />;
+  return (
+    <>
+      <AutoReviewRedirect />
+      <CustomerDashboardPage />
+    </>
+  );
 }

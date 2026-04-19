@@ -77,7 +77,7 @@ export default function AutoReviewRedirect() {
         return;
       }
 
-      const reviewStatus = await api.get(`/reviews/order/${latestDoneOrder.id}/status`);
+      const reviewStatus = await api.get(`/washers/reviews/order/${latestDoneOrder.id}/status`);
 
       if (reviewStatus.data?.reviewed) {
         if (
