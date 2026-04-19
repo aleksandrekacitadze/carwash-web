@@ -37,6 +37,10 @@ export default function WasherJobsPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
+  const [notifLoading, setNotifLoading] = useState(false);
+  const [notifEnabled, setNotifEnabled] = useState(false);
+  const [notifMessage, setNotifMessage] = useState("");
+
   async function registerServiceWorker() {
     if (typeof window === "undefined") return null;
     if (!("serviceWorker" in navigator)) return null;
@@ -63,27 +67,70 @@ export default function WasherJobsPage() {
     return outputArray;
   }
 
-  async function subscribeWasherPush() {
+  async function checkExistingSubscription() {
     try {
       if (typeof window === "undefined") return;
       if (!("serviceWorker" in navigator)) return;
       if (!("PushManager" in window)) return;
 
-      const publicKey = process.env.NEXT_PUBLIC_WEB_PUSH_PUBLIC_KEY;
-      if (!publicKey) {
-        console.warn("NEXT_PUBLIC_WEB_PUSH_PUBLIC_KEY is missing");
+      const registration =
+        (await navigator.serviceWorker.getRegistration()) ||
+        (await registerServiceWorker());
+
+      if (!registration) return;
+
+      const existing = await registration.pushManager.getSubscription();
+      if (existing) {
+        setNotifEnabled(true);
+        setNotifMessage("Notifications already enabled.");
+      }
+    } catch (error) {
+      console.error("Failed to check existing subscription:", error);
+    }
+  }
+
+  async function enableNotifications() {
+    try {
+      setNotifLoading(true);
+      setNotifMessage("");
+
+      if (typeof window === "undefined") {
+        setNotifMessage("Notifications are not available here.");
         return;
       }
 
-      const permission = await Notification.requestPermission();
-      if (permission !== "granted") {
-        console.warn("Notification permission not granted");
+      if (!("serviceWorker" in navigator)) {
+        setNotifMessage("Service workers are not supported on this device.");
+        return;
+      }
+
+      if (!("PushManager" in window)) {
+        setNotifMessage("Push notifications are not supported on this device.");
+        return;
+      }
+
+      const publicKey = process.env.NEXT_PUBLIC_WEB_PUSH_PUBLIC_KEY;
+      if (!publicKey) {
+        setNotifMessage("Public push key is missing.");
         return;
       }
 
       const registration =
         (await navigator.serviceWorker.getRegistration()) ||
         (await navigator.serviceWorker.register("/sw.js"));
+
+      if (!registration) {
+        setNotifMessage("Service worker registration failed.");
+        return;
+      }
+
+      const permission = await Notification.requestPermission();
+
+      if (permission !== "granted") {
+        setNotifEnabled(false);
+        setNotifMessage("Notification permission was not granted.");
+        return;
+      }
 
       let subscription = await registration.pushManager.getSubscription();
 
@@ -106,8 +153,19 @@ export default function WasherJobsPage() {
         deviceType: "web",
         isActive: true,
       });
-    } catch (error) {
+
+      setNotifEnabled(true);
+      setNotifMessage("Notifications enabled successfully ✅");
+    } catch (error: any) {
       console.error("Failed to subscribe washer push:", error);
+      setNotifEnabled(false);
+      setNotifMessage(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Failed to enable notifications."
+      );
+    } finally {
+      setNotifLoading(false);
     }
   }
 
@@ -128,7 +186,7 @@ export default function WasherJobsPage() {
   useEffect(() => {
     async function init() {
       await registerServiceWorker();
-      await subscribeWasherPush();
+      await checkExistingSubscription();
       await load();
     }
 
@@ -165,6 +223,45 @@ export default function WasherJobsPage() {
           </button>
         </div>
       </header>
+
+      <section style={S.card}>
+        <div style={S.notificationsTop}>
+          <div>
+            <h2 style={S.cardTitle}>Notifications</h2>
+            <div style={S.small}>
+              Enable notifications to receive new order alerts.
+            </div>
+          </div>
+
+          <button
+            style={{
+              ...S.btnPrimary,
+              width: "auto",
+              minWidth: 220,
+              opacity: notifLoading ? 0.7 : 1,
+            }}
+            onClick={enableNotifications}
+            disabled={notifLoading}
+          >
+            {notifLoading
+              ? "Enabling..."
+              : notifEnabled
+              ? "Notifications Enabled"
+              : "Enable Notifications"}
+          </button>
+        </div>
+
+        {notifMessage ? (
+          <div
+            style={{
+              ...S.notice,
+              ...(notifEnabled ? S.noticeOk : S.noticeWarn),
+            }}
+          >
+            {notifMessage}
+          </div>
+        ) : null}
+      </section>
 
       {loading ? <div style={S.card}>Loading…</div> : null}
       {err ? (
@@ -284,6 +381,32 @@ const S: Record<string, React.CSSProperties> = {
     margin: 0,
     fontSize: 18,
     fontWeight: 900,
+  },
+
+  notificationsTop: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 12,
+    flexWrap: "wrap",
+  },
+
+  notice: {
+    marginTop: 12,
+    padding: "12px 14px",
+    borderRadius: 14,
+    fontSize: 13,
+    fontWeight: 700,
+  },
+  noticeOk: {
+    background: "rgba(60,255,177,0.12)",
+    border: "1px solid rgba(60,255,177,0.24)",
+    color: "#c8ffe7",
+  },
+  noticeWarn: {
+    background: "rgba(255,99,99,0.10)",
+    border: "1px solid rgba(255,99,99,0.22)",
+    color: "#ffd0d0",
   },
 
   btnGhost: {
