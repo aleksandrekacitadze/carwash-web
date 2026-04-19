@@ -15,7 +15,8 @@ type OrderStatus =
   | "CANCEL_REQUESTED"
   | "CANCELED";
 
-type PaymentMethod = "CASH" | "CARD";
+type PaymentMode = "CREDIT" | "DIRECT" | "CASH";
+type PaymentStatus = "PENDING" | "PAID" | "FAILED" | "REFUNDED";
 
 type Order = {
   id: number;
@@ -30,9 +31,9 @@ type Order = {
   notes: string | null;
   status: OrderStatus;
 
-  paymentMethod: PaymentMethod;
+  paymentMode: PaymentMode | null;
+  paymentStatus: PaymentStatus;
   isPaid: boolean;
-  paidAt: string | null;
 
   acceptedAt: string | null;
   cancelRequestedAt: string | null;
@@ -90,7 +91,6 @@ const STEPS: Step[] = [
   },
 ];
 
-// placeholder ETA for washer page only
 function estimateEtaMinutes(lat: number | null, lng: number | null) {
   if (lat == null || lng == null) return null;
   return 12;
@@ -148,10 +148,38 @@ function WasherOrderInner() {
     );
   }, [order]);
 
+  const needsCashCollectionBeforeDone = useMemo(() => {
+    if (!order) return false;
+    return (
+      order.paymentMode === "CASH" &&
+      order.paymentStatus !== "PAID" &&
+      order.status === "RETURNING_TO_CUSTOMER"
+    );
+  }, [order]);
+
   const showCashCollectedButton = useMemo(() => {
     if (!order) return false;
-    return order.paymentMethod === "CASH" && !order.isPaid && order.status === "DONE";
+    return (
+      order.paymentMode === "CASH" &&
+      order.paymentStatus !== "PAID" &&
+      order.status === "RETURNING_TO_CUSTOMER"
+    );
   }, [order]);
+
+  const canAdvanceNormally = useMemo(() => {
+    if (!order || !nextStatus) return false;
+    if (isBlocked) return false;
+
+    if (
+      order.status === "RETURNING_TO_CUSTOMER" &&
+      order.paymentMode === "CASH" &&
+      order.paymentStatus !== "PAID"
+    ) {
+      return false;
+    }
+
+    return true;
+  }, [order, nextStatus, isBlocked]);
 
   async function fetchOrder() {
     if (!orderId) {
@@ -325,13 +353,13 @@ function WasherOrderInner() {
   }
 
   function onPointerDown(e: React.PointerEvent) {
-    if (isBlocked || !nextStatus || updating) return;
+    if (!canAdvanceNormally || updating) return;
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     setDragging(true);
   }
 
   function onPointerMove(e: React.PointerEvent) {
-    if (!dragging || isBlocked || !nextStatus || updating) return;
+    if (!dragging || !canAdvanceNormally || updating) return;
 
     const track = sliderRef.current;
     if (!track) return;
@@ -348,7 +376,7 @@ function WasherOrderInner() {
     const max = getMaxDrag();
     const ratio = max === 0 ? 0 : dragX / max;
 
-    if (ratio >= 0.92 && nextStatus) {
+    if (ratio >= 0.92 && nextStatus && canAdvanceNormally) {
       await setStatus(nextStatus);
       return;
     }
@@ -375,9 +403,14 @@ function WasherOrderInner() {
       return "Customer requested cancel. You cannot change status now.";
     }
     if (order.status === "CANCELED") return "Order is canceled.";
+
+    if (needsCashCollectionBeforeDone) {
+      return "Collect cash first, then finish the order.";
+    }
+
     const s = STEPS.find((x) => x.key === order.status);
     return s ? s.hint : "";
-  }, [order]);
+  }, [order, needsCashCollectionBeforeDone]);
 
   const gpsStatusText = useMemo(() => {
     switch (gpsState) {
@@ -397,6 +430,12 @@ function WasherOrderInner() {
           : "Live GPS tracking is off for this status.";
     }
   }, [gpsState, gpsError, shouldTrackLiveLocation]);
+
+  const paymentText = useMemo(() => {
+    if (!order) return "";
+    const mode = order.paymentMode ?? "—";
+    return `${mode} • ${order.paymentStatus}`;
+  }, [order]);
 
   return (
     <main style={S.page}>
@@ -479,6 +518,10 @@ function WasherOrderInner() {
                 </div>
               ) : isBlocked ? (
                 <div style={S.small}>Blocked: {order.status}</div>
+              ) : needsCashCollectionBeforeDone ? (
+                <div style={S.cashNotice}>
+                  Cash payment is still pending. Tap <b>Cash Collected</b> first.
+                </div>
               ) : (
                 <div
                   ref={sliderRef}
@@ -506,7 +549,7 @@ function WasherOrderInner() {
                 </div>
               )}
 
-              {!isBlocked && nextStatus ? (
+              {canAdvanceNormally && nextStatus ? (
                 <button
                   style={S.btnPrimary}
                   onClick={() => setStatus(nextStatus)}
@@ -587,17 +630,13 @@ function WasherOrderInner() {
 
               <div style={S.kv}>
                 <div style={S.k}>Payment</div>
-                <div style={S.v}>
-                  {order.paymentMethod} • {order.isPaid ? "Paid ✅" : "Pending"}
-                </div>
+                <div style={S.v}>{paymentText}</div>
               </div>
 
-              {order.paidAt ? (
-                <div style={S.kv}>
-                  <div style={S.k}>Paid at</div>
-                  <div style={S.v}>{new Date(order.paidAt).toLocaleString()}</div>
-                </div>
-              ) : null}
+              <div style={S.kv}>
+                <div style={S.k}>Paid</div>
+                <div style={S.v}>{order.isPaid ? "Yes ✅" : "No"}</div>
+              </div>
 
               <div style={S.kv}>
                 <div style={S.k}>Live GPS</div>
@@ -793,6 +832,16 @@ const S: Record<string, React.CSSProperties> = {
     placeItems: "center",
     fontWeight: 950,
     boxShadow: "0 10px 26px rgba(0,0,0,0.35)",
+  },
+
+  cashNotice: {
+    padding: "12px 14px",
+    borderRadius: 14,
+    background: "rgba(255, 209, 102, 0.12)",
+    border: "1px solid rgba(255, 209, 102, 0.35)",
+    color: "#ffe7a3",
+    fontSize: 14,
+    lineHeight: 1.4,
   },
 
   mapFake: {
