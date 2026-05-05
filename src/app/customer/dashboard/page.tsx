@@ -56,6 +56,17 @@ type SubscriptionMe = {
   activeUntil?: string;
 } | null;
 
+type PriceQuote = {
+  quoteId?: number;
+  basePriceGel: number;
+  distanceKm: number | null;
+  distancePriceGel: number;
+  totalPriceGel: number;
+  nearestWasherId: number | null;
+  source: "AVAILABLE_WASHER" | "RETURNING_TO_CUSTOMER" | null;
+  message?: string;
+};
+
 function prettyCarName(c: Car) {
   const b = (c.brand || "").trim();
   const m = (c.model || "").trim();
@@ -81,13 +92,11 @@ function formatAddress(a: AddressForm) {
 
 async function geocodeAddress(query: string) {
   const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=1&q=${encodeURIComponent(
-    query
+    query,
   )}`;
 
   const res = await fetch(url, {
-    headers: {
-      Accept: "application/json",
-    },
+    headers: { Accept: "application/json" },
   });
 
   if (!res.ok) throw new Error("Geocoding failed");
@@ -107,9 +116,7 @@ async function reverseGeocode(lat: number, lng: number) {
   const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&lat=${lat}&lon=${lng}`;
 
   const res = await fetch(url, {
-    headers: {
-      Accept: "application/json",
-    },
+    headers: { Accept: "application/json" },
   });
 
   if (!res.ok) throw new Error("Reverse geocoding failed");
@@ -126,10 +133,7 @@ async function reverseGeocode(lat: number, lng: number) {
     addr.residential ||
     "";
 
-  const building =
-    addr.house_number ||
-    addr.building ||
-    "";
+  const building = addr.house_number || addr.building || "";
 
   const city =
     addr.city ||
@@ -163,7 +167,7 @@ export default function CustomerDashboardPage() {
   const [activeCarId, setActiveCarId] = useState<number | null>(null);
   const activeCar = useMemo(
     () => cars.find((c) => c.id === activeCarId) || null,
-    [cars, activeCarId]
+    [cars, activeCarId],
   );
 
   const [services, setServices] = useState<Service[]>([]);
@@ -173,16 +177,14 @@ export default function CustomerDashboardPage() {
   const [serviceId, setServiceId] = useState<number | null>(null);
   const selectedService = useMemo(
     () => services.find((s) => s.id === serviceId) || null,
-    [services, serviceId]
+    [services, serviceId],
   );
 
   const [locMode, setLocMode] = useState<LocationMode>("GPS");
 
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError, setGpsError] = useState("");
-  const [gpsCoords, setGpsCoords] = useState<{ lat: number; lng: number } | null>(
-    null
-  );
+  const [gpsCoords, setGpsCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   const [addressForm, setAddressForm] = useState<AddressForm>({
     city: "Tbilisi",
@@ -195,15 +197,17 @@ export default function CustomerDashboardPage() {
   });
 
   const [manualSaved, setManualSaved] = useState(false);
-  const [manualCoords, setManualCoords] = useState<{ lat: number; lng: number } | null>(
-    null
-  );
+  const [manualCoords, setManualCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [manualGeoName, setManualGeoName] = useState("");
   const [manualLoading, setManualLoading] = useState(false);
   const [manualError, setManualError] = useState("");
 
   const [washers, setWashers] = useState<Washer[]>([]);
   const [washersLoading, setWashersLoading] = useState(false);
+
+  const [priceQuote, setPriceQuote] = useState<PriceQuote | null>(null);
+  const [priceQuoteLoading, setPriceQuoteLoading] = useState(false);
+  const [priceQuoteErr, setPriceQuoteErr] = useState("");
 
   const fileRef = useRef<HTMLInputElement | null>(null);
 
@@ -225,6 +229,98 @@ export default function CustomerDashboardPage() {
     return "No address selected yet";
   }, [addressForm, locMode, gpsCoords]);
 
+  const finalWashPrice = useMemo(() => {
+    if (priceQuote?.totalPriceGel != null) return Number(priceQuote.totalPriceGel);
+    return Number(selectedService?.priceGel ?? 0);
+  }, [priceQuote, selectedService]);
+
+  useEffect(() => {
+    loadCars();
+    loadServices();
+    loadTopWashers();
+
+    const savedLocation = localStorage.getItem("customer_saved_location");
+    if (savedLocation) {
+      try {
+        const parsed = JSON.parse(savedLocation);
+
+        if (parsed.addressForm) {
+          setAddressForm(parsed.addressForm);
+        }
+
+        if (parsed.coords) {
+          setManualCoords(parsed.coords);
+          setLocMode("MANUAL");
+          setManualSaved(true);
+        }
+
+        if (parsed.manualGeoName) {
+          setManualGeoName(parsed.manualGeoName);
+        }
+      } catch {
+        // ignore
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!selectedService || !currentCoords) {
+      setPriceQuote(null);
+      return;
+    }
+
+    const t = setTimeout(() => {
+      loadPriceQuote();
+    }, 500);
+
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedService?.id, currentCoords?.lat, currentCoords?.lng]);
+
+  function saveLocationLocally(params: {
+    addressForm: AddressForm;
+    coords: { lat: number; lng: number };
+    manualGeoName?: string;
+  }) {
+    localStorage.setItem(
+      "customer_saved_location",
+      JSON.stringify({
+        addressForm: params.addressForm,
+        coords: params.coords,
+        manualGeoName: params.manualGeoName || "",
+        savedAt: new Date().toISOString(),
+      }),
+    );
+  }
+
+  async function loadPriceQuote() {
+    if (!selectedService || !currentCoords) {
+      setPriceQuote(null);
+      return;
+    }
+
+    try {
+      setPriceQuoteLoading(true);
+      setPriceQuoteErr("");
+
+      const { data } = await api.post<PriceQuote>("/orders/price-quote", {
+        serviceId: selectedService.id,
+        lat: currentCoords.lat,
+        lng: currentCoords.lng,
+      });
+
+      setPriceQuote(data);
+    } catch (e: any) {
+      setPriceQuote(null);
+      setPriceQuoteErr(
+        e?.response?.data?.message || e?.message || "Failed to calculate price.",
+      );
+    } finally {
+      setPriceQuoteLoading(false);
+    }
+  }
+
   async function pickCarImage() {
     fileRef.current?.click();
   }
@@ -240,16 +336,9 @@ export default function CustomerDashboardPage() {
 
     const dataUrl = await readFileAsDataUrl(file);
     setCars((prev) =>
-      prev.map((c) => (c.id === activeCar.id ? { ...c, imageDataUrl: dataUrl } : c))
+      prev.map((c) => (c.id === activeCar.id ? { ...c, imageDataUrl: dataUrl } : c)),
     );
   }
-
-  useEffect(() => {
-    loadCars();
-    loadServices();
-    loadTopWashers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   async function loadCars() {
     setCarsErr("");
@@ -339,8 +428,8 @@ export default function CustomerDashboardPage() {
                 ...data,
                 nickname: `${data.brand || c.brand} ${data.model || c.model}`.trim(),
               }
-            : c
-        )
+            : c,
+        ),
       );
     } catch (e: any) {
       alert(e?.response?.data?.message || "Failed to update car.");
@@ -363,9 +452,11 @@ export default function CustomerDashboardPage() {
 
   function updateAddressField<K extends keyof AddressForm>(key: K, value: AddressForm[K]) {
     setAddressForm((prev) => ({ ...prev, [key]: value }));
+
     if (locMode === "MANUAL") {
       setManualSaved(false);
       setManualError("");
+      setPriceQuote(null);
     }
   }
 
@@ -393,13 +484,22 @@ export default function CustomerDashboardPage() {
           setGpsCoords(coords);
 
           const rev = await reverseGeocode(coords.lat, coords.lng);
-          setAddressForm((prev) => ({
-            ...prev,
-            city: rev.form.city || prev.city,
-            street: rev.form.street || prev.street,
-            building: rev.form.building || prev.building,
-          }));
+
+          const updatedAddressForm = {
+            ...addressForm,
+            city: rev.form.city || addressForm.city,
+            street: rev.form.street || addressForm.street,
+            building: rev.form.building || addressForm.building,
+          };
+
+          setAddressForm(updatedAddressForm);
           setManualGeoName(rev.displayName || "");
+
+          saveLocationLocally({
+            addressForm: updatedAddressForm,
+            coords,
+            manualGeoName: rev.displayName || "",
+          });
 
           try {
             await api.post("/users/me/location", coords);
@@ -416,7 +516,7 @@ export default function CustomerDashboardPage() {
         setGpsLoading(false);
         setGpsError(err.message || "Failed to get location");
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 10000 },
     );
   }
 
@@ -448,12 +548,19 @@ export default function CustomerDashboardPage() {
         return;
       }
 
-      setManualCoords({ lat: geo.lat, lng: geo.lng });
+      const coords = { lat: geo.lat, lng: geo.lng };
+
+      setManualCoords(coords);
       setManualGeoName(geo.displayName || "");
-
-      await api.post("/users/me/location", { lat: geo.lat, lng: geo.lng });
-
       setManualSaved(true);
+
+      saveLocationLocally({
+        addressForm,
+        coords,
+        manualGeoName: geo.displayName || "",
+      });
+
+      await api.post("/users/me/location", coords);
     } catch (e: any) {
       setManualError(e?.message || "Failed to geocode/save location.");
       setManualSaved(false);
@@ -474,7 +581,6 @@ export default function CustomerDashboardPage() {
     if (!hasLocation) throw new Error("Please select a location first.");
 
     const address = formatAddress(addressForm) || "GPS location (auto)";
-
     const scheduledAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
     return {
@@ -492,7 +598,7 @@ export default function CustomerDashboardPage() {
       notes: addressForm.comment || null,
       paymentMode,
       ...(paymentMode === "DIRECT" || paymentMode === "CASH"
-        ? { price: String(selectedService.priceGel) }
+        ? { price: String(finalWashPrice) }
         : {}),
     };
   }
@@ -504,24 +610,9 @@ export default function CustomerDashboardPage() {
       const payload = await buildOrderPayload("DIRECT");
       const { data } = await api.post<{ id: number }>("/orders", payload);
 
-      const checkout = await api.post<{
-        providerOrderId: string;
-        approveUrl?: string | null;
-      }>(`/payments/checkout/${data.id}`, {
-        provider: "PAYPAL",
-        amount: String(selectedService?.priceGel ?? "0"),
-      });
-
-      const approveUrl = checkout.data?.approveUrl;
-      if (!approveUrl) {
-        throw new Error("Payment approval URL missing.");
-      }
-
-      window.location.href = approveUrl;
+      router.push(`/customer/pay/order/${data.id}`);
     } catch (e: any) {
-      alert(
-        e?.response?.data?.message || e?.message || "Failed to start direct payment."
-      );
+      alert(e?.response?.data?.message || e?.message || "Failed to create direct order.");
     } finally {
       setWashLoading(false);
     }
@@ -545,9 +636,7 @@ export default function CustomerDashboardPage() {
 
       router.push(`/orders/${data.id}/waiting`);
     } catch (e: any) {
-      alert(
-        e?.response?.data?.message || e?.message || "Failed to create credit order."
-      );
+      alert(e?.response?.data?.message || e?.message || "Failed to create credit order.");
     } finally {
       setCreditWashLoading(false);
     }
@@ -562,9 +651,7 @@ export default function CustomerDashboardPage() {
 
       router.push(`/orders/${data.id}/waiting`);
     } catch (e: any) {
-      alert(
-        e?.response?.data?.message || e?.message || "Failed to create cash order."
-      );
+      alert(e?.response?.data?.message || e?.message || "Failed to create cash order.");
     } finally {
       setCashWashLoading(false);
     }
@@ -621,7 +708,6 @@ export default function CustomerDashboardPage() {
             <div style={S.carCard}>
               <div style={S.carImageBox}>
                 {activeCar.imageDataUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
                   <img src={activeCar.imageDataUrl} alt="Car" style={S.carImage} />
                 ) : (
                   <div style={S.carImagePlaceholder}>
@@ -660,7 +746,7 @@ export default function CustomerDashboardPage() {
                       onChange={(e) => {
                         const v = e.target.value;
                         setCars((prev) =>
-                          prev.map((c) => (c.id === activeCar.id ? { ...c, brand: v } : c))
+                          prev.map((c) => (c.id === activeCar.id ? { ...c, brand: v } : c)),
                         );
                       }}
                       onBlur={() => updateCarPatch(activeCar.id, { brand: activeCar.brand })}
@@ -675,7 +761,7 @@ export default function CustomerDashboardPage() {
                       onChange={(e) => {
                         const v = e.target.value;
                         setCars((prev) =>
-                          prev.map((c) => (c.id === activeCar.id ? { ...c, model: v } : c))
+                          prev.map((c) => (c.id === activeCar.id ? { ...c, model: v } : c)),
                         );
                       }}
                       onBlur={() => updateCarPatch(activeCar.id, { model: activeCar.model })}
@@ -694,8 +780,8 @@ export default function CustomerDashboardPage() {
                         const v = e.target.value;
                         setCars((prev) =>
                           prev.map((c) =>
-                            c.id === activeCar.id ? { ...c, plateNumber: v } : c
-                          )
+                            c.id === activeCar.id ? { ...c, plateNumber: v } : c,
+                          ),
                         );
                       }}
                       onBlur={() =>
@@ -714,7 +800,7 @@ export default function CustomerDashboardPage() {
                       onChange={(e) => {
                         const v = e.target.value;
                         setCars((prev) =>
-                          prev.map((c) => (c.id === activeCar.id ? { ...c, color: v } : c))
+                          prev.map((c) => (c.id === activeCar.id ? { ...c, color: v } : c)),
                         );
                       }}
                       onBlur={() =>
@@ -752,11 +838,33 @@ export default function CustomerDashboardPage() {
                         </div>
                       ) : null}
 
-                      <div style={{ ...S.washTypeRow, marginTop: 12 }}>
-                        <div style={S.totalPrice}>
-                          Total: <b>{selectedService?.priceGel ?? "-"} GEL</b>
-                        </div>
+                      <div style={{ ...S.totalPrice, marginTop: 12 }}>
+                        Base: <b>{selectedService?.priceGel ?? "-"} GEL</b>
+                        <br />
+                        Distance:{" "}
+                        <b>
+                          {priceQuoteLoading
+                            ? "Calculating..."
+                            : priceQuote?.distancePriceGel != null
+                              ? `${priceQuote.distancePriceGel} GEL`
+                              : "0 GEL"}
+                        </b>
+                        <br />
+                        Total: <b>{finalWashPrice || "-"} GEL</b>
                       </div>
+
+                      {priceQuote?.distanceKm != null ? (
+                        <div style={S.mutedSmall}>
+                          Nearest washer distance: {priceQuote.distanceKm.toFixed(2)} km
+                          {priceQuote.source ? ` • ${priceQuote.source}` : ""}
+                        </div>
+                      ) : null}
+
+                      {priceQuote?.message ? (
+                        <div style={S.mutedSmall}>{priceQuote.message}</div>
+                      ) : null}
+
+                      {priceQuoteErr ? <div style={S.errorText}>{priceQuoteErr}</div> : null}
                     </>
                   ) : (
                     <div style={S.mutedSmall}>
@@ -771,9 +879,7 @@ export default function CustomerDashboardPage() {
                     onClick={onWashNowDirect}
                     disabled={washLoading || creditWashLoading || cashWashLoading}
                   >
-                    {washLoading
-                      ? "STARTING PAYMENT..."
-                      : `WASH NOW — ${selectedService?.priceGel ?? "-"} GEL`}
+                    {washLoading ? "CREATING ORDER..." : `WASH NOW — ${finalWashPrice || "-"} GEL`}
                   </button>
 
                   <button
@@ -794,8 +900,8 @@ export default function CustomerDashboardPage() {
                 </div>
 
                 <div style={S.mutedSmall}>
-                  Direct payment creates order + starts checkout. Credit and cash go directly
-                  to the waiting page.
+                  Direct payment creates order and opens the payment page. Credit and cash go
+                  directly to the waiting page.
                 </div>
               </div>
             </div>
@@ -945,8 +1051,8 @@ export default function CustomerDashboardPage() {
             {manualError ? <div style={S.errorText}>{manualError}</div> : null}
 
             <div style={S.mutedSmall}>
-              GPS now auto-fills the address fields. You can edit them before ordering.
-              Manual mode geocodes the entered address and saves coordinates.
+              GPS and manual locations are saved locally. Price updates after location and
+              service are selected.
             </div>
           </div>
         </section>
@@ -973,9 +1079,7 @@ export default function CustomerDashboardPage() {
                     <div style={S.washerName}>{w.fullName}</div>
                     <div style={S.washerMeta}>
                       ⭐ {w.avgRating.toFixed(1)} ({w.totalReviews})
-                      {typeof w.distanceKm === "number"
-                        ? ` • ${w.distanceKm.toFixed(1)}km`
-                        : ""}
+                      {typeof w.distanceKm === "number" ? ` • ${w.distanceKm.toFixed(1)}km` : ""}
                     </div>
                   </div>
 
@@ -987,7 +1091,7 @@ export default function CustomerDashboardPage() {
             </div>
           )}
 
-          <div style={S.mutedSmall}>Ranked by rating (distance later).</div>
+          <div style={S.mutedSmall}>Ranked by rating.</div>
         </section>
       </div>
     </div>
@@ -1191,16 +1295,10 @@ const S: Record<string, React.CSSProperties> = {
     background: "rgba(0,0,0,0.18)",
   },
   pricesTitle: { fontWeight: 900, marginBottom: 8 },
-  washTypeRow: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-    flexWrap: "wrap",
-  },
   totalPrice: {
     fontSize: 15,
     fontWeight: 800,
+    lineHeight: 1.7,
   },
 
   washButtonsWrap: {
