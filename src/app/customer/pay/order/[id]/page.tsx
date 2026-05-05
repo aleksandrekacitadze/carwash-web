@@ -14,11 +14,18 @@ type Order = {
   washerId?: number | null;
 };
 
+type Me = {
+  id: number;
+  email?: string;
+  role?: string;
+};
+
 export default function PayOrderPage() {
   const router = useRouter();
   const params = useParams();
   const orderId = useMemo(() => Number(params?.id || 0), [params]);
 
+  const [me, setMe] = useState<Me | null>(null);
   const [order, setOrder] = useState<Order | null>(null);
   const [amount, setAmount] = useState("0");
   const [err, setErr] = useState("");
@@ -30,6 +37,7 @@ export default function PayOrderPage() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const canPay =
+    !!me?.id &&
     order?.status === "ACCEPTED" &&
     order?.isPaid !== true &&
     order?.paymentStatus !== "PAID";
@@ -37,7 +45,7 @@ export default function PayOrderPage() {
   useEffect(() => {
     audioRef.current = new Audio("/sounds/order-accepted.mp3");
 
-    loadOrder();
+    init();
 
     const interval = setInterval(() => {
       loadOrder(false);
@@ -46,6 +54,21 @@ export default function PayOrderPage() {
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId, acceptedNotified]);
+
+  async function init() {
+    await loadMe();
+    await loadOrder();
+  }
+
+  async function loadMe() {
+    try {
+      const { data } = await api.get<Me>("/auth/me");
+      setMe(data);
+    } catch {
+      setErr("User not found. Please login again.");
+      router.push("/auth");
+    }
+  }
 
   function showToast(message: string) {
     setToast(message);
@@ -63,9 +86,7 @@ export default function PayOrderPage() {
       await audioRef.current?.play();
       audioRef.current?.pause();
       if (audioRef.current) audioRef.current.currentTime = 0;
-    } catch {
-      // browser may block until real interaction
-    }
+    } catch {}
   }
 
   async function loadOrder(showLoading = true) {
@@ -73,6 +94,7 @@ export default function PayOrderPage() {
 
     try {
       if (showLoading) setLoading(true);
+      setErr("");
 
       const { data } = await api.get<Order>(`/orders/${orderId}`);
       setOrder(data);
@@ -88,9 +110,7 @@ export default function PayOrderPage() {
 
         try {
           await audioRef.current?.play();
-        } catch {
-          // sound may be blocked before user taps/clicks
-        }
+        } catch {}
       }
 
       if (data.isPaid || data.paymentStatus === "PAID") {
@@ -103,18 +123,6 @@ export default function PayOrderPage() {
     }
   }
 
-  function getUserId() {
-    const raw = localStorage.getItem("user");
-    if (!raw) return null;
-
-    try {
-      const user = JSON.parse(raw);
-      return user?.id ?? null;
-    } catch {
-      return null;
-    }
-  }
-
   async function payWithKeepz() {
     try {
       await unlockAudio();
@@ -122,16 +130,16 @@ export default function PayOrderPage() {
       setPayLoading(true);
       setErr("");
 
-      if (!order) throw new Error("Order not loaded.");
+      if (!me?.id) {
+        throw new Error("User not found. Please login again.");
+      }
+
+      if (!order) {
+        throw new Error("Order not loaded.");
+      }
 
       if (order.status !== "ACCEPTED") {
         throw new Error("Wait until washer accepts your order.");
-      }
-
-      const userId = getUserId();
-
-      if (!userId) {
-        throw new Error("User not found. Please login again.");
       }
 
       const finalAmount = Number(amount);
@@ -145,7 +153,6 @@ export default function PayOrderPage() {
         providerOrderId: string;
         checkoutUrl: string;
       }>("/payments/create", {
-        userId,
         kind: "ORDER",
         orderId: order.id,
         provider: "KEEPZ",
@@ -170,6 +177,7 @@ export default function PayOrderPage() {
         <div>
           <h1 style={S.title}>Pay for Order #{orderId}</h1>
           <div style={S.sub}>Payment unlocks after washer accepts your order.</div>
+          {me?.id ? <div style={S.small}>Logged user ID: {me.id}</div> : null}
         </div>
 
         <button style={S.btn} onClick={() => router.push("/orders/my")}>
@@ -185,26 +193,16 @@ export default function PayOrderPage() {
         ) : order ? (
           <>
             <div style={S.statusBox}>
-              <div>
-                <b>Status:</b> {order.status}
-              </div>
-              <div>
-                <b>Washer:</b> {order.washerId ?? "Waiting..."}
-              </div>
-              <div>
-                <b>Payment:</b> {order.paymentStatus ?? "PENDING"}
-              </div>
-              <div>
-                <b>Address:</b> {order.address}
-              </div>
+              <div><b>Status:</b> {order.status}</div>
+              <div><b>Washer:</b> {order.washerId ?? "Waiting..."}</div>
+              <div><b>Payment:</b> {order.paymentStatus ?? "PENDING"}</div>
+              <div><b>Address:</b> {order.address}</div>
             </div>
 
             {order.status !== "ACCEPTED" ? (
               <div style={S.waitBox}>
                 ⏳ Waiting for washer to accept your order...
-                <div style={S.small}>
-                  This page checks automatically every 3 seconds.
-                </div>
+                <div style={S.small}>This page checks automatically every 3 seconds.</div>
               </div>
             ) : (
               <div style={S.okBox}>✅ Washer accepted your order. You can pay now.</div>
@@ -233,8 +231,7 @@ export default function PayOrderPage() {
             </button>
 
             <div style={S.small}>
-              After payment, KEEPZ redirects you back. Backend callback confirms and marks
-              the order paid.
+              Backend gets userId from JWT token, not from frontend.
             </div>
           </>
         ) : (
