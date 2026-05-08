@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { api } from "@/lib/api";
 
 type AvailabilityStatus =
   | "AVAILABLE"
@@ -15,7 +16,7 @@ export default function WasherAvailabilityToggle() {
     useState(false);
 
   // -----------------------------------------
-  // OPTIONAL: LOAD CURRENT STATUS
+  // LOAD CURRENT PROFILE
   // -----------------------------------------
 
   useEffect(() => {
@@ -24,29 +25,89 @@ export default function WasherAvailabilityToggle() {
 
   async function fetchProfile() {
     try {
-      const token =
-        localStorage.getItem("token");
-
-      const res = await fetch(
-        "http://localhost:3001/washers/me",
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
+      const { data } = await api.get(
+        "/washers/me",
       );
 
-      if (!res.ok) return;
-
-      const data = await res.json();
-
       if (data?.availabilityStatus) {
-        setStatus(data.availabilityStatus);
+        setStatus(
+          data.availabilityStatus,
+        );
       }
     } catch (err) {
       console.error(err);
     }
   }
+
+  // -----------------------------------------
+  // LIVE GPS UPDATE
+  // -----------------------------------------
+
+  async function updateLiveLocation() {
+    try {
+      if (
+        !navigator.geolocation
+      ) {
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          try {
+            const lat =
+              pos.coords.latitude;
+
+            const lng =
+              pos.coords.longitude;
+
+            await api.post(
+              "/users/location",
+              {
+                lat,
+                lng,
+              },
+            );
+          } catch (err) {
+            console.error(
+              "Location update failed",
+              err,
+            );
+          }
+        },
+        (err) => {
+          console.error(err);
+        },
+        {
+          enableHighAccuracy: true,
+        },
+      );
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  // -----------------------------------------
+  // GPS POLLING
+  // -----------------------------------------
+
+  useEffect(() => {
+    if (
+      status !== "AVAILABLE"
+    ) {
+      return;
+    }
+
+    // initial update
+    updateLiveLocation();
+
+    const interval =
+      setInterval(() => {
+        updateLiveLocation();
+      }, 10000);
+
+    return () =>
+      clearInterval(interval);
+  }, [status]);
 
   // -----------------------------------------
   // GO ONLINE
@@ -56,27 +117,20 @@ export default function WasherAvailabilityToggle() {
     try {
       setLoading(true);
 
-      const token =
-        localStorage.getItem("token");
-
-      const res = await fetch(
-        "http://localhost:3001/washers/online",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
+      await api.post(
+        "/washers/online",
       );
 
-      if (!res.ok) {
-        throw new Error("Failed");
-      }
-
       setStatus("AVAILABLE");
+
+      // immediately send location
+      await updateLiveLocation();
     } catch (err) {
       console.error(err);
-      alert("Failed to go online");
+
+      alert(
+        "Failed to go online",
+      );
     } finally {
       setLoading(false);
     }
@@ -90,27 +144,17 @@ export default function WasherAvailabilityToggle() {
     try {
       setLoading(true);
 
-      const token =
-        localStorage.getItem("token");
-
-      const res = await fetch(
-        "http://localhost:3001/washers/offline",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
+      await api.post(
+        "/washers/offline",
       );
-
-      if (!res.ok) {
-        throw new Error("Failed");
-      }
 
       setStatus("OFFLINE");
     } catch (err) {
       console.error(err);
-      alert("Failed to go offline");
+
+      alert(
+        "Failed to go offline",
+      );
     } finally {
       setLoading(false);
     }
@@ -123,20 +167,30 @@ export default function WasherAvailabilityToggle() {
   const isOnline =
     status === "AVAILABLE";
 
+  const isBusy =
+    status === "BUSY";
+
   return (
     <div style={styles.wrapper}>
       <div style={styles.statusRow}>
         <div
           style={{
             ...styles.dot,
-            backgroundColor: isOnline
-              ? "#22c55e"
-              : "#ef4444",
+
+            backgroundColor:
+              isOnline
+                ? "#22c55e"
+                : isBusy
+                ? "#f59e0b"
+                : "#ef4444",
           }}
         />
 
-        <span style={styles.statusText}>
-          {status === "AVAILABLE"
+        <span
+          style={styles.statusText}
+        >
+          {status ===
+          "AVAILABLE"
             ? "Online"
             : status === "BUSY"
             ? "Busy"
@@ -144,13 +198,27 @@ export default function WasherAvailabilityToggle() {
         </span>
       </div>
 
-      {isOnline ? (
+      {isBusy ? (
+        <button
+          disabled
+          style={{
+            ...styles.button,
+            backgroundColor:
+              "#f59e0b",
+            cursor: "not-allowed",
+            opacity: 0.8,
+          }}
+        >
+          Busy On Order
+        </button>
+      ) : isOnline ? (
         <button
           onClick={goOffline}
           disabled={loading}
           style={{
             ...styles.button,
-            backgroundColor: "#ef4444",
+            backgroundColor:
+              "#ef4444",
           }}
         >
           {loading
@@ -163,7 +231,8 @@ export default function WasherAvailabilityToggle() {
           disabled={loading}
           style={{
             ...styles.button,
-            backgroundColor: "#22c55e",
+            backgroundColor:
+              "#22c55e",
           }}
         >
           {loading
@@ -175,17 +244,25 @@ export default function WasherAvailabilityToggle() {
   );
 }
 
-const styles: Record<string, any> = {
+const styles: Record<
+  string,
+  any
+> = {
   wrapper: {
     width: "100%",
     maxWidth: 340,
     padding: 20,
     borderRadius: 24,
+
     background:
       "rgba(255,255,255,0.06)",
-    backdropFilter: "blur(12px)",
+
+    backdropFilter:
+      "blur(12px)",
+
     border:
       "1px solid rgba(255,255,255,0.08)",
+
     display: "flex",
     flexDirection: "column",
     gap: 16,
