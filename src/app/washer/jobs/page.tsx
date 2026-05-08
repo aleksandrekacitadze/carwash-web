@@ -184,7 +184,103 @@ export default function WasherJobsPage() {
       setLoading(false);
     }
   }
+useEffect(() => {
+  if (
+    typeof window === "undefined" ||
+    !navigator.geolocation
+  ) {
+    console.warn(
+      "Geolocation is not supported",
+    );
+    return;
+  }
 
+  let lastSentAt = 0;
+
+  const watchId =
+    navigator.geolocation.watchPosition(
+      async (pos) => {
+        try {
+          const now = Date.now();
+
+          // prevent too many requests
+          if (now - lastSentAt < 5000) {
+            return;
+          }
+
+          lastSentAt = now;
+
+          const lat =
+            pos.coords.latitude;
+
+          const lng =
+            pos.coords.longitude;
+
+          const accuracy =
+            pos.coords.accuracy;
+
+          console.log(
+            "LIVE GPS:",
+            lat,
+            lng,
+            "accuracy:",
+            accuracy,
+          );
+
+          // ignore very bad GPS
+          if (
+            accuracy &&
+            accuracy > 100
+          ) {
+            console.warn(
+              "GPS accuracy too low",
+            );
+            return;
+          }
+
+          await api.post(
+            "/users/live-location",
+            {
+              lat,
+              lng,
+            },
+          );
+
+          console.log(
+            "GPS location updated",
+          );
+        } catch (err) {
+          console.error(
+            "Failed to update GPS",
+            err,
+          );
+        }
+      },
+
+      (err) => {
+        console.error(
+          "Geolocation error:",
+          err,
+        );
+      },
+
+      {
+        enableHighAccuracy: true,
+        maximumAge: 5000,
+        timeout: 15000,
+      },
+    );
+
+  return () => {
+    navigator.geolocation.clearWatch(
+      watchId,
+    );
+
+    console.log(
+      "Stopped GPS tracking",
+    );
+  };
+}, []);
   useEffect(() => {
     async function init() {
       await registerServiceWorker();
