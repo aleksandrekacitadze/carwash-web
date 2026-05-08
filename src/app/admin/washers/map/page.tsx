@@ -8,6 +8,7 @@ import {
 
 import {
   useEffect,
+  useMemo,
   useState,
 } from "react";
 
@@ -22,11 +23,16 @@ type Washer = {
   availabilityStatus: string;
 };
 
+const defaultCenter = {
+  lat: 41.7151,
+  lng: 44.8271,
+};
+
 export default function LiveWashersMapPage() {
   const [washers, setWashers] =
     useState<Washer[]>([]);
 
-  const { isLoaded } =
+  const { isLoaded, loadError } =
     useJsApiLoader({
       googleMapsApiKey:
         process.env
@@ -58,39 +64,91 @@ export default function LiveWashersMapPage() {
       clearInterval(interval);
   }, []);
 
+  const center = useMemo(() => {
+    if (!washers.length) {
+      return defaultCenter;
+    }
+
+    return {
+      lat: washers[0].lat,
+      lng: washers[0].lng,
+    };
+  }, [washers]);
+
+  if (loadError) {
+    return (
+      <div
+        style={{
+          padding: 20,
+          color: "white",
+        }}
+      >
+        Failed to load Google Maps.
+      </div>
+    );
+  }
+
   if (!isLoaded) {
-    return <div>Loading map...</div>;
+    return (
+      <div
+        style={{
+          padding: 20,
+          color: "white",
+        }}
+      >
+        Loading map...
+      </div>
+    );
   }
 
   return (
-    <div
+    <main
       style={{
         width: "100%",
-        height: "100vh",
+        minHeight: "100vh",
+        background: "#0b0f19",
+        padding: 16,
+        boxSizing: "border-box",
       }}
     >
-      <GoogleMap
-        zoom={12}
-        center={{
-          lat: 41.7151,
-          lng: 44.8271,
-        }}
-        mapContainerStyle={{
+      <div
+        style={{
           width: "100%",
-          height: "100%",
+          height: "85vh",
+          minHeight: 500,
+          borderRadius: 24,
+          overflow: "hidden",
+          border:
+            "1px solid rgba(255,255,255,0.12)",
+          boxShadow:
+            "0 20px 50px rgba(0,0,0,0.35)",
         }}
       >
-        {washers.map((w) => (
-          <Marker
-            key={w.id}
-            position={{
-              lat: w.lat,
-              lng: w.lng,
-            }}
-            title={`${w.fullName} (${w.city})`}
-          />
-        ))}
-      </GoogleMap>
-    </div>
+        <GoogleMap
+          zoom={12}
+          center={center}
+          mapContainerStyle={{
+            width: "100%",
+            height: "100%",
+          }}
+          options={{
+            fullscreenControl: true,
+            streetViewControl: false,
+            mapTypeControl: false,
+          }}
+        >
+          {washers.map((w) => (
+            <Marker
+              key={w.id}
+              position={{
+                lat: w.lat,
+                lng: w.lng,
+              }}
+              title={`${w.fullName} (${w.city})`}
+            />
+          ))}
+        </GoogleMap>
+      </div>
+    </main>
   );
 }
