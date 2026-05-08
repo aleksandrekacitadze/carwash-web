@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useRouter } from "next/navigation";
+import WasherAvailabilityToggle
+from "@/components/washerswitch";
 
 type OrderStatus =
   | "REQUESTED"
@@ -269,7 +271,9 @@ export default function WasherJobsPage() {
           <b>⚠️</b> {err}
         </div>
       ) : null}
-
+<section style={S.card}>
+  <WasherAvailabilityToggle />
+</section>
       <section style={S.card}>
         <h2 style={S.cardTitle}>Jobs</h2>
 
