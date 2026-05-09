@@ -6,7 +6,8 @@ import { api } from "@/lib/api";
 type AvailabilityStatus =
   | "AVAILABLE"
   | "OFFLINE"
-  | "BUSY";
+  | "BUSY"
+  | "RETURNING_TO_CUSTOMER";
 
 export default function WasherAvailabilityToggle() {
   const [status, setStatus] =
@@ -19,17 +20,15 @@ export default function WasherAvailabilityToggle() {
   // LOAD CURRENT PROFILE
   // -----------------------------------------
 
-  useEffect(() => {
-    fetchProfile();
-  }, []);
-
   async function fetchProfile() {
     try {
       const { data } = await api.get(
         "/washers/me",
       );
 
-      if (data?.availabilityStatus) {
+      if (
+        data?.availabilityStatus
+      ) {
         setStatus(
           data.availabilityStatus,
         );
@@ -38,6 +37,22 @@ export default function WasherAvailabilityToggle() {
       console.error(err);
     }
   }
+
+  // -----------------------------------------
+  // INITIAL + POLLING
+  // -----------------------------------------
+
+  useEffect(() => {
+    fetchProfile();
+
+    const interval =
+      setInterval(() => {
+        fetchProfile();
+      }, 5000);
+
+    return () =>
+      clearInterval(interval);
+  }, []);
 
   // -----------------------------------------
   // LIVE GPS UPDATE
@@ -74,9 +89,11 @@ export default function WasherAvailabilityToggle() {
             );
           }
         },
+
         (err) => {
           console.error(err);
         },
+
         {
           enableHighAccuracy: true,
         },
@@ -92,12 +109,13 @@ export default function WasherAvailabilityToggle() {
 
   useEffect(() => {
     if (
-      status !== "AVAILABLE"
+      status !== "AVAILABLE" &&
+      status !==
+        "RETURNING_TO_CUSTOMER"
     ) {
       return;
     }
 
-    // initial update
     updateLiveLocation();
 
     const interval =
@@ -123,7 +141,6 @@ export default function WasherAvailabilityToggle() {
 
       setStatus("AVAILABLE");
 
-      // immediately send location
       await updateLiveLocation();
     } catch (err) {
       console.error(err);
@@ -161,7 +178,7 @@ export default function WasherAvailabilityToggle() {
   }
 
   // -----------------------------------------
-  // UI
+  // UI STATES
   // -----------------------------------------
 
   const isOnline =
@@ -169,6 +186,10 @@ export default function WasherAvailabilityToggle() {
 
   const isBusy =
     status === "BUSY";
+
+  const isReturning =
+    status ===
+    "RETURNING_TO_CUSTOMER";
 
   return (
     <div style={styles.wrapper}>
@@ -182,6 +203,8 @@ export default function WasherAvailabilityToggle() {
                 ? "#22c55e"
                 : isBusy
                 ? "#f59e0b"
+                : isReturning
+                ? "#3b82f6"
                 : "#ef4444",
           }}
         />
@@ -189,11 +212,13 @@ export default function WasherAvailabilityToggle() {
         <span
           style={styles.statusText}
         >
-          {status ===
-          "AVAILABLE"
+          {status === "AVAILABLE"
             ? "Online"
             : status === "BUSY"
             ? "Busy"
+            : status ===
+              "RETURNING_TO_CUSTOMER"
+            ? "Returning To Customer"
             : "Offline"}
         </span>
       </div>
@@ -205,11 +230,24 @@ export default function WasherAvailabilityToggle() {
             ...styles.button,
             backgroundColor:
               "#f59e0b",
-            cursor: "not-allowed",
-            opacity: 0.8,
+            cursor:
+              "not-allowed",
+            opacity: 0.85,
           }}
         >
           Busy On Order
+        </button>
+      ) : isReturning ? (
+        <button
+          disabled
+          style={{
+            ...styles.button,
+            backgroundColor:
+              "#3b82f6",
+            opacity: 0.9,
+          }}
+        >
+          Returning To Customer
         </button>
       ) : isOnline ? (
         <button
