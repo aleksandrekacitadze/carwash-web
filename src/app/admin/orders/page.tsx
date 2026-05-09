@@ -1,10 +1,6 @@
 "use client";
 
-import React, {
-  useEffect,
-  useState,
-} from "react";
-
+import React, { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 
 type OrderItem = {
@@ -44,15 +40,14 @@ function fmtDate(v?: string | null) {
 
   const d = new Date(v);
 
-  if (Number.isNaN(d.getTime()))
+  if (Number.isNaN(d.getTime())) {
     return "—";
+  }
 
   return d.toLocaleString();
 }
 
-function statusColor(
-  status?: string,
-) {
+function statusColor(status?: string) {
   switch (status) {
     case "REQUESTED":
       return "#b8c0cc";
@@ -87,105 +82,70 @@ function statusColor(
 }
 
 export default function AdminOrdersPage() {
-  const [orders, setOrders] =
-    useState<OrderItem[]>([]);
+  const [orders, setOrders] = useState<OrderItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
 
-  const [loading, setLoading] =
-    useState(true);
+  const [status, setStatus] = useState("");
+  const [paymentMode, setPaymentMode] = useState("");
+  const [paymentStatus, setPaymentStatus] = useState("");
+  const [q, setQ] = useState("");
 
-  const [err, setErr] =
-    useState("");
+  const [workingId, setWorkingId] =
+    useState<string | null>(null);
 
-  const [status, setStatus] =
-    useState("");
-
-  const [paymentMode, setPaymentMode] =
-    useState("");
-
-  const [
-    paymentStatus,
-    setPaymentStatus,
-  ] = useState("");
-
-  const [q, setQ] =
-    useState("");
-
-  const [
-    workingId,
-    setWorkingId,
-  ] = useState<string | null>(
-    null,
-  );
-
-  const [
-    selectedOrderId,
-    setSelectedOrderId,
-  ] = useState<number | null>(
-    null,
-  );
+  const [selectedOrderId, setSelectedOrderId] =
+    useState<number | null>(null);
 
   const [details, setDetails] =
-    useState<OrderDetails | null>(
-      null,
-    );
+    useState<OrderDetails | null>(null);
 
-  const [
-    detailsLoading,
-    setDetailsLoading,
-  ] = useState(false);
+  const [detailsLoading, setDetailsLoading] =
+    useState(false);
 
-  const [
-    detailsErr,
-    setDetailsErr,
-  ] = useState("");
+  const [detailsErr, setDetailsErr] =
+    useState("");
 
   async function loadOrders() {
     try {
       setLoading(true);
       setErr("");
 
-      const params =
-        new URLSearchParams();
+      const params = new URLSearchParams();
 
-      if (status)
-        params.set(
-          "status",
-          status,
-        );
+      if (status) {
+        params.set("status", status);
+      }
 
-      if (paymentMode)
+      if (paymentMode) {
         params.set(
           "paymentMode",
           paymentMode,
         );
+      }
 
-      if (paymentStatus)
+      if (paymentStatus) {
         params.set(
           "paymentStatus",
           paymentStatus,
         );
+      }
 
-      if (q.trim())
-        params.set(
-          "q",
-          q.trim(),
-        );
+      if (q.trim()) {
+        params.set("q", q.trim());
+      }
 
-      const url =
-        params.toString()
-          ? `/admin/orders?${params.toString()}`
-          : "/admin/orders";
+      const url = params.toString()
+        ? `/admin/orders?${params.toString()}`
+        : "/admin/orders";
 
       const { data } =
-        await api.get<OrderItem[]>(
-          url,
-        );
+        await api.get<OrderItem[]>(url);
 
       setOrders(data || []);
     } catch (e: any) {
       setErr(
-        e?.response?.data
-          ?.message ||
+        e?.response?.data?.message ||
           e?.message ||
           "Failed to load orders.",
       );
@@ -198,9 +158,7 @@ export default function AdminOrdersPage() {
     orderId: number,
   ) {
     try {
-      setSelectedOrderId(
-        orderId,
-      );
+      setSelectedOrderId(orderId);
 
       setDetailsLoading(true);
 
@@ -216,23 +174,166 @@ export default function AdminOrdersPage() {
       setDetails(null);
 
       setDetailsErr(
-        e?.response?.data
-          ?.message ||
+        e?.response?.data?.message ||
           e?.message ||
-          "Failed to load details.",
+          "Failed to load order details.",
       );
     } finally {
       setDetailsLoading(false);
     }
   }
 
+  useEffect(() => {
+    loadOrders();
+  }, []);
+
+  async function applyFilters() {
+    await loadOrders();
+  }
+
+  async function approveCancel(
+    orderId: number,
+  ) {
+    const refund = window.confirm(
+      "Refund customer frozen credit if this was a credit order?",
+    );
+
+    try {
+      setWorkingId(
+        `approve-cancel-${orderId}`,
+      );
+
+      await api.post(
+        `/admin/orders/${orderId}/cancel-decision`,
+        {
+          approve: true,
+          chargePercent: 0,
+          adminDecisionNote:
+            "Cancel approved by admin",
+          refundCustomerCreditOnCancel:
+            refund,
+        },
+      );
+
+      await loadOrders();
+
+      if (
+        selectedOrderId === orderId
+      ) {
+        await loadDetails(orderId);
+      }
+    } catch (e: any) {
+      alert(
+        e?.response?.data?.message ||
+          e?.message ||
+          "Failed to approve cancel.",
+      );
+    } finally {
+      setWorkingId(null);
+    }
+  }
+
+  async function rejectCancel(
+    orderId: number,
+  ) {
+    try {
+      setWorkingId(
+        `reject-cancel-${orderId}`,
+      );
+
+      await api.post(
+        `/admin/orders/${orderId}/cancel-decision`,
+        {
+          approve: false,
+          adminDecisionNote:
+            "Cancel rejected by admin",
+        },
+      );
+
+      await loadOrders();
+
+      if (
+        selectedOrderId === orderId
+      ) {
+        await loadDetails(orderId);
+      }
+    } catch (e: any) {
+      alert(
+        e?.response?.data?.message ||
+          e?.message ||
+          "Failed to reject cancel.",
+      );
+    } finally {
+      setWorkingId(null);
+    }
+  }
+
+  async function markCashCollected(
+    orderId: number,
+  ) {
+    try {
+      setWorkingId(
+        `cash-${orderId}`,
+      );
+
+      await api.post(
+        `/admin/orders/${orderId}/cash-collected`,
+      );
+
+      await loadOrders();
+
+      if (
+        selectedOrderId === orderId
+      ) {
+        await loadDetails(orderId);
+      }
+    } catch (e: any) {
+      alert(
+        e?.response?.data?.message ||
+          e?.message ||
+          "Failed to mark cash collected.",
+      );
+    } finally {
+      setWorkingId(null);
+    }
+  }
+
+  async function markPaid(
+    orderId: number,
+  ) {
+    try {
+      setWorkingId(
+        `paid-${orderId}`,
+      );
+
+      await api.post(
+        `/admin/orders/${orderId}/mark-paid`,
+      );
+
+      await loadOrders();
+
+      if (
+        selectedOrderId === orderId
+      ) {
+        await loadDetails(orderId);
+      }
+    } catch (e: any) {
+      alert(
+        e?.response?.data?.message ||
+          e?.message ||
+          "Failed to mark order paid.",
+      );
+    } finally {
+      setWorkingId(null);
+    }
+  }
+
   async function deleteOrder(
     orderId: number,
   ) {
-    const ok =
-      window.confirm(
-        `Delete order #${orderId}?`,
-      );
+    const ok = window.confirm(
+      `Delete order #${orderId}?`,
+    );
 
     if (!ok) return;
 
@@ -246,32 +347,41 @@ export default function AdminOrdersPage() {
       );
 
       if (
-        selectedOrderId ===
-        orderId
+        selectedOrderId === orderId
       ) {
-        setSelectedOrderId(
-          null,
-        );
-
+        setSelectedOrderId(null);
         setDetails(null);
       }
 
       await loadOrders();
+
+      alert("Order deleted");
     } catch (e: any) {
       alert(
-        e?.response?.data
-          ?.message ||
+        e?.response?.data?.message ||
           e?.message ||
-          "Delete failed.",
+          "Failed to delete order.",
       );
     } finally {
       setWorkingId(null);
     }
   }
 
-  useEffect(() => {
-    loadOrders();
-  }, []);
+  function openOrderMap(
+    orderId: number,
+  ) {
+    window.open(
+      `/admin/orders/${orderId}/map`,
+      "_blank",
+    );
+  }
+
+  function openLiveWashersMap() {
+    window.open(
+      "/admin/washers/map",
+      "_blank",
+    );
+  }
 
   return (
     <main style={S.page}>
@@ -286,10 +396,9 @@ export default function AdminOrdersPage() {
           </h1>
 
           <div style={S.sub}>
-            Manage orders,
-            maps,
-            cancellations,
-            payments.
+            Manage all orders,
+            payments, maps, and
+            cancel decisions.
           </div>
         </div>
 
@@ -301,107 +410,188 @@ export default function AdminOrdersPage() {
             Dashboard
           </a>
 
-          <a
-            href="/admin/washers/map"
-            style={S.mapBtn}
-          >
-            Live Washers Map
-          </a>
-
           <button
             style={S.btnGhost}
             onClick={loadOrders}
           >
             Refresh
           </button>
+
+          <button
+            style={S.mapBtn}
+            onClick={
+              openLiveWashersMap
+            }
+          >
+            Live Washers Map
+          </button>
         </div>
       </header>
 
       <section style={S.filtersCard}>
         <div style={S.filtersGrid}>
-          <select
-            style={S.input}
-            value={status}
-            onChange={(e) =>
-              setStatus(
-                e.target.value,
-              )
-            }
+          <div>
+            <div style={S.label}>
+              Status
+            </div>
+
+            <select
+              style={S.input}
+              value={status}
+              onChange={(e) =>
+                setStatus(
+                  e.target.value,
+                )
+              }
+            >
+              <option value="">
+                All
+              </option>
+
+              <option value="REQUESTED">
+                REQUESTED
+              </option>
+
+              <option value="ACCEPTED">
+                ACCEPTED
+              </option>
+
+              <option value="ON_THE_WAY">
+                ON_THE_WAY
+              </option>
+
+              <option value="GOING_TO_LAUNDRY">
+                GOING_TO_LAUNDRY
+              </option>
+
+              <option value="WASHING">
+                WASHING
+              </option>
+
+              <option value="RETURNING_TO_CUSTOMER">
+                RETURNING_TO_CUSTOMER
+              </option>
+
+              <option value="DONE">
+                DONE
+              </option>
+
+              <option value="CANCEL_REQUESTED">
+                CANCEL_REQUESTED
+              </option>
+
+              <option value="CANCELED">
+                CANCELED
+              </option>
+            </select>
+          </div>
+
+          <div>
+            <div style={S.label}>
+              Payment Mode
+            </div>
+
+            <select
+              style={S.input}
+              value={paymentMode}
+              onChange={(e) =>
+                setPaymentMode(
+                  e.target.value,
+                )
+              }
+            >
+              <option value="">
+                All
+              </option>
+
+              <option value="CREDIT">
+                CREDIT
+              </option>
+
+              <option value="DIRECT">
+                DIRECT
+              </option>
+
+              <option value="CASH">
+                CASH
+              </option>
+            </select>
+          </div>
+
+          <div>
+            <div style={S.label}>
+              Payment Status
+            </div>
+
+            <select
+              style={S.input}
+              value={paymentStatus}
+              onChange={(e) =>
+                setPaymentStatus(
+                  e.target.value,
+                )
+              }
+            >
+              <option value="">
+                All
+              </option>
+
+              <option value="PENDING">
+                PENDING
+              </option>
+
+              <option value="PAID">
+                PAID
+              </option>
+
+              <option value="REFUNDED">
+                REFUNDED
+              </option>
+
+              <option value="FAILED">
+                FAILED
+              </option>
+            </select>
+          </div>
+
+          <div>
+            <div style={S.label}>
+              Search
+            </div>
+
+            <input
+              style={S.input}
+              value={q}
+              onChange={(e) =>
+                setQ(
+                  e.target.value,
+                )
+              }
+              placeholder="Order ID, address..."
+            />
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "end",
+            }}
           >
-            <option value="">
-              All statuses
-            </option>
-
-            <option value="REQUESTED">
-              REQUESTED
-            </option>
-
-            <option value="ACCEPTED">
-              ACCEPTED
-            </option>
-
-            <option value="DONE">
-              DONE
-            </option>
-
-            <option value="CANCEL_REQUESTED">
-              CANCEL_REQUESTED
-            </option>
-
-            <option value="CANCELED">
-              CANCELED
-            </option>
-          </select>
-
-          <select
-            style={S.input}
-            value={paymentMode}
-            onChange={(e) =>
-              setPaymentMode(
-                e.target.value,
-              )
-            }
-          >
-            <option value="">
-              All payment modes
-            </option>
-
-            <option value="CASH">
-              CASH
-            </option>
-
-            <option value="DIRECT">
-              DIRECT
-            </option>
-
-            <option value="CREDIT">
-              CREDIT
-            </option>
-          </select>
-
-          <input
-            style={S.input}
-            value={q}
-            onChange={(e) =>
-              setQ(
-                e.target.value,
-              )
-            }
-            placeholder="Search..."
-          />
-
-          <button
-            style={S.primaryBtn}
-            onClick={loadOrders}
-          >
-            Apply
-          </button>
+            <button
+              style={S.primaryBtn}
+              onClick={
+                applyFilters
+              }
+            >
+              Apply filters
+            </button>
+          </div>
         </div>
       </section>
 
       {loading ? (
         <div style={S.card}>
-          Loading...
+          Loading…
         </div>
       ) : null}
 
@@ -418,160 +608,219 @@ export default function AdminOrdersPage() {
               Orders
             </h2>
 
-            <div style={S.countPill}>
+            <span
+              style={S.countPill}
+            >
               {orders.length}
-            </div>
+            </span>
           </div>
 
-          <div style={S.listWrap}>
-            {orders.map((o) => (
-              <div
-                key={o.id}
-                style={S.rowCard}
-              >
+          {orders.length === 0 ? (
+            <div style={S.empty}>
+              No orders found.
+            </div>
+          ) : (
+            <div style={S.listWrap}>
+              {orders.map((o) => (
                 <div
-                  style={S.rowMain}
+                  key={o.id}
+                  style={S.rowCard}
                 >
                   <div
-                    style={S.rowTop}
+                    style={S.rowMain}
                   >
                     <div
-                      style={
-                        S.rowTitle
-                      }
+                      style={S.rowTop}
                     >
-                      Order #{o.id}
+                      <div
+                        style={
+                          S.rowTitle
+                        }
+                      >
+                        Order #{o.id}
+                      </div>
+
+                      <span
+                        style={{
+                          ...S.statusPill,
+                          borderColor:
+                            statusColor(
+                              o.status,
+                            ),
+                          color:
+                            statusColor(
+                              o.status,
+                            ),
+                        }}
+                      >
+                        {o.status}
+                      </span>
                     </div>
 
-                    <span
-                      style={{
-                        ...S.statusPill,
-                        borderColor:
-                          statusColor(
-                            o.status,
-                          ),
-                        color:
-                          statusColor(
-                            o.status,
-                          ),
-                      }}
+                    <div
+                      style={
+                        S.rowMeta
+                      }
                     >
-                      {o.status}
-                    </span>
+                      Customer #
+                      {
+                        o.customerId
+                      }{" "}
+                      • Washer{" "}
+                      {o.washerId
+                        ? `#${o.washerId}`
+                        : "—"}
+                    </div>
+
+                    <div
+                      style={
+                        S.rowMeta
+                      }
+                    >
+                      Payment:{" "}
+                      {o.paymentMode ||
+                        "—"}{" "}
+                      •{" "}
+                      {o.paymentStatus ||
+                        "—"}
+                    </div>
+
+                    <div
+                      style={
+                        S.rowMeta
+                      }
+                    >
+                      Address:{" "}
+                      {o.address}
+                    </div>
+
+                    <div
+                      style={
+                        S.rowMeta
+                      }
+                    >
+                      Scheduled:{" "}
+                      {fmtDate(
+                        o.scheduledAt,
+                      )}
+                    </div>
                   </div>
 
                   <div
                     style={
-                      S.rowMeta
+                      S.rowActions
                     }
                   >
-                    Customer #
-                    {
-                      o.customerId
-                    }
-                  </div>
+                    <button
+                      style={
+                        S.viewBtn
+                      }
+                      onClick={() =>
+                        loadDetails(
+                          o.id,
+                        )
+                      }
+                    >
+                      View
+                    </button>
 
-                  <div
-                    style={
-                      S.rowMeta
-                    }
-                  >
-                    Washer:
-                    {" "}
-                    {o.washerId
-                      ? `#${o.washerId}`
-                      : "—"}
-                  </div>
+                    <button
+                      style={
+                        S.mapBtn
+                      }
+                      onClick={() =>
+                        openOrderMap(
+                          o.id,
+                        )
+                      }
+                    >
+                      Open Map
+                    </button>
 
-                  <div
-                    style={
-                      S.rowMeta
-                    }
-                  >
-                    {
-                      o.address
-                    }
-                  </div>
+                    <button
+                      style={
+                        S.deleteBtn
+                      }
+                      onClick={() =>
+                        deleteOrder(
+                          o.id,
+                        )
+                      }
+                    >
+                      Delete
+                    </button>
 
-                  <div
-                    style={
-                      S.rowMeta
-                    }
-                  >
-                    Payment:
-                    {" "}
-                    {
-                      o.paymentMode
-                    }{" "}
-                    •{" "}
-                    {
-                      o.paymentStatus
-                    }
-                  </div>
+                    {o.status ===
+                    "CANCEL_REQUESTED" ? (
+                      <>
+                        <button
+                          style={
+                            S.approveBtn
+                          }
+                          onClick={() =>
+                            approveCancel(
+                              o.id,
+                            )
+                          }
+                        >
+                          Approve
+                          cancel
+                        </button>
 
-                  <div
-                    style={
-                      S.rowMeta
-                    }
-                  >
-                    Created:
-                    {" "}
-                    {fmtDate(
-                      o.createdAt,
-                    )}
+                        <button
+                          style={
+                            S.rejectBtn
+                          }
+                          onClick={() =>
+                            rejectCancel(
+                              o.id,
+                            )
+                          }
+                        >
+                          Reject
+                          cancel
+                        </button>
+                      </>
+                    ) : null}
+
+                    {o.paymentMode ===
+                      "CASH" &&
+                    o.paymentStatus !==
+                      "PAID" ? (
+                      <button
+                        style={
+                          S.cashBtn
+                        }
+                        onClick={() =>
+                          markCashCollected(
+                            o.id,
+                          )
+                        }
+                      >
+                        Cash
+                        collected
+                      </button>
+                    ) : null}
+
+                    {!o.isPaid ? (
+                      <button
+                        style={
+                          S.markPaidBtn
+                        }
+                        onClick={() =>
+                          markPaid(
+                            o.id,
+                          )
+                        }
+                      >
+                        Mark paid
+                      </button>
+                    ) : null}
                   </div>
                 </div>
-
-                <div
-                  style={
-                    S.rowActions
-                  }
-                >
-                  <button
-                    style={
-                      S.viewBtn
-                    }
-                    onClick={() =>
-                      loadDetails(
-                        o.id,
-                      )
-                    }
-                  >
-                    View
-                  </button>
-
-                  <a
-                    href={`/admin/orders/${o.id}/map`}
-                    style={
-                      S.mapBtn
-                    }
-                  >
-                    Open Map
-                  </a>
-
-                  <button
-                    style={
-                      S.deleteBtn
-                    }
-                    onClick={() =>
-                      deleteOrder(
-                        o.id,
-                      )
-                    }
-                    disabled={
-                      workingId ===
-                      `delete-${o.id}`
-                    }
-                  >
-                    {workingId ===
-                    `delete-${o.id}`
-                      ? "Deleting..."
-                      : "Delete"}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </section>
 
         <aside style={S.card}>
@@ -581,7 +830,7 @@ export default function AdminOrdersPage() {
             </h2>
 
             {selectedOrderId ? (
-              <div
+              <span
                 style={
                   S.countPill
                 }
@@ -590,30 +839,26 @@ export default function AdminOrdersPage() {
                 {
                   selectedOrderId
                 }
-              </div>
+              </span>
             ) : null}
           </div>
 
           {!selectedOrderId ? (
             <div style={S.empty}>
-              Select order
+              Select an order.
             </div>
           ) : detailsLoading ? (
             <div style={S.empty}>
-              Loading...
+              Loading…
             </div>
           ) : detailsErr ? (
             <div style={S.empty}>
-              ⚠️{" "}
-              {
-                detailsErr
-              }
+              ⚠️ {detailsErr}
             </div>
           ) : details ? (
             <div
               style={{
-                display:
-                  "grid",
+                display: "grid",
                 gap: 12,
               }}
             >
@@ -635,12 +880,9 @@ export default function AdminOrdersPage() {
                     S.detailMeta
                   }
                 >
-                  ID:
-                  {" "}
-                  #
+                  ID: #
                   {
-                    details
-                      .order
+                    details.order
                       .id
                   }
                 </div>
@@ -650,11 +892,9 @@ export default function AdminOrdersPage() {
                     S.detailMeta
                   }
                 >
-                  Status:
-                  {" "}
+                  Status:{" "}
                   {
-                    details
-                      .order
+                    details.order
                       .status
                   }
                 </div>
@@ -664,127 +904,17 @@ export default function AdminOrdersPage() {
                     S.detailMeta
                   }
                 >
-                  Address:
-                  {" "}
+                  Address:{" "}
                   {
-                    details
-                      .order
+                    details.order
                       .address
-                  }
-                </div>
-
-                <div
-                  style={
-                    S.detailMeta
-                  }
-                >
-                  Payment:
-                  {" "}
-                  {
-                    details
-                      .order
-                      .paymentMode
-                  }{" "}
-                  •{" "}
-                  {
-                    details
-                      .order
-                      .paymentStatus
-                  }
-                </div>
-              </div>
-
-              <div
-                style={
-                  S.detailBox
-                }
-              >
-                <div
-                  style={
-                    S.detailTitle
-                  }
-                >
-                  Customer
-                </div>
-
-                <div
-                  style={
-                    S.detailMeta
-                  }
-                >
-                  Name:
-                  {" "}
-                  {
-                    details
-                      .customer
-                      ?.fullName ||
-                    "—"
-                  }
-                </div>
-
-                <div
-                  style={
-                    S.detailMeta
-                  }
-                >
-                  Phone:
-                  {" "}
-                  {
-                    details
-                      .customer
-                      ?.phone ||
-                    "—"
-                  }
-                </div>
-              </div>
-
-              <div
-                style={
-                  S.detailBox
-                }
-              >
-                <div
-                  style={
-                    S.detailTitle
-                  }
-                >
-                  Washer
-                </div>
-
-                <div
-                  style={
-                    S.detailMeta
-                  }
-                >
-                  Name:
-                  {" "}
-                  {
-                    details
-                      .washer
-                      ?.fullName ||
-                    "—"
-                  }
-                </div>
-
-                <div
-                  style={
-                    S.detailMeta
-                  }
-                >
-                  Phone:
-                  {" "}
-                  {
-                    details
-                      .washer
-                      ?.phone ||
-                    "—"
                   }
                 </div>
               </div>
             </div>
           ) : (
             <div style={S.empty}>
-              No details
+              No details.
             </div>
           )}
         </aside>
@@ -799,19 +929,18 @@ const S: Record<
 > = {
   page: {
     minHeight: "100vh",
-    padding: 14,
-    background:
-      "#0b0f19",
+    padding: 16,
+    background: "#0b0f19",
     color: "#fff",
     fontFamily:
-      "system-ui",
+      "ui-sans-serif,system-ui",
   },
 
   header: {
     display: "flex",
     justifyContent:
       "space-between",
-    alignItems: "flex-start",
+    alignItems: "flex-end",
     gap: 12,
     flexWrap: "wrap",
     marginBottom: 16,
@@ -819,8 +948,7 @@ const S: Record<
 
   badge: {
     display: "inline-flex",
-    padding:
-      "6px 10px",
+    padding: "6px 10px",
     borderRadius: 999,
     background:
       "rgba(255,255,255,0.10)",
@@ -831,40 +959,53 @@ const S: Record<
   },
 
   title: {
-    margin:
-      "8px 0 0",
-    fontSize: 30,
+    margin: "8px 0 0",
+    fontSize: 28,
     fontWeight: 950,
   },
 
   sub: {
     marginTop: 6,
-    opacity: 0.8,
+    opacity: 0.82,
   },
 
   headerBtns: {
     display: "flex",
     gap: 10,
     flexWrap: "wrap",
-    width: "100%",
-    maxWidth: 500,
   },
 
   btnGhost: {
-    flex: 1,
     background:
       "rgba(255,255,255,0.10)",
     color: "#fff",
-    padding:
-      "12px 14px",
+    padding: "10px 12px",
     borderRadius: 14,
-    fontWeight: 900,
+    fontWeight: 800,
     border:
       "1px solid rgba(255,255,255,0.14)",
     cursor: "pointer",
-    textDecoration:
-      "none",
-    textAlign: "center",
+    textDecoration: "none",
+  },
+
+  mapBtn: {
+    padding: "10px 12px",
+    borderRadius: 14,
+    border: "none",
+    cursor: "pointer",
+    fontWeight: 900,
+    background: "#6ae3ff",
+    color: "#071d2c",
+  },
+
+  deleteBtn: {
+    padding: "10px 12px",
+    borderRadius: 14,
+    border: "none",
+    cursor: "pointer",
+    fontWeight: 900,
+    background: "#ff4d6d",
+    color: "#fff",
   },
 
   filtersCard: {
@@ -884,36 +1025,38 @@ const S: Record<
     gap: 10,
   },
 
+  label: {
+    fontSize: 12,
+    fontWeight: 900,
+    marginBottom: 6,
+  },
+
   input: {
     width: "100%",
-    padding:
-      "12px 12px",
+    padding: "12px",
     borderRadius: 14,
     border:
       "1px solid rgba(255,255,255,0.14)",
     background:
       "rgba(0,0,0,0.22)",
     color: "#fff",
-    outline: "none",
   },
 
   primaryBtn: {
     width: "100%",
-    padding:
-      "12px 12px",
+    padding: "12px",
     borderRadius: 14,
     border: "none",
-    cursor: "pointer",
     fontWeight: 950,
-    background:
-      "#3cffb1",
+    background: "#3cffb1",
     color: "#062112",
+    cursor: "pointer",
   },
 
   layout: {
     display: "grid",
     gridTemplateColumns:
-      "1fr",
+      "1.2fr 0.8fr",
     gap: 16,
   },
 
@@ -926,46 +1069,40 @@ const S: Record<
     padding: 14,
   },
 
+  cardTitle: {
+    margin: 0,
+    fontSize: 18,
+    fontWeight: 900,
+  },
+
   sectionTop: {
     display: "flex",
     justifyContent:
       "space-between",
-    alignItems: "center",
-    gap: 10,
-    flexWrap: "wrap",
     marginBottom: 12,
   },
 
-  cardTitle: {
-    margin: 0,
-    fontSize: 20,
-    fontWeight: 950,
-  },
-
   countPill: {
-    padding:
-      "6px 10px",
+    padding: "6px 10px",
     borderRadius: 999,
     background:
       "rgba(255,255,255,0.10)",
-    border:
-      "1px solid rgba(255,255,255,0.14)",
     fontWeight: 900,
-    fontSize: 12,
   },
 
   listWrap: {
     display: "grid",
-    gap: 12,
+    gap: 10,
   },
 
   rowCard: {
     display: "flex",
-    flexDirection:
-      "column",
-    gap: 14,
-    padding: 14,
-    borderRadius: 18,
+    justifyContent:
+      "space-between",
+    gap: 12,
+    flexWrap: "wrap",
+    padding: 12,
+    borderRadius: 16,
     background:
       "rgba(0,0,0,0.18)",
     border:
@@ -973,87 +1110,90 @@ const S: Record<
   },
 
   rowMain: {
-    minWidth: 0,
+    flex: "1 1 260px",
   },
 
   rowTop: {
     display: "flex",
-    justifyContent:
-      "space-between",
-    alignItems: "center",
     gap: 10,
     flexWrap: "wrap",
   },
 
   rowTitle: {
     fontWeight: 950,
-    fontSize: 17,
+    fontSize: 16,
   },
 
   rowMeta: {
+    fontSize: 12,
+    opacity: 0.82,
     marginTop: 6,
-    fontSize: 13,
-    opacity: 0.84,
-    wordBreak:
-      "break-word",
   },
 
   rowActions: {
-    display: "grid",
-    gridTemplateColumns:
-      "repeat(auto-fit,minmax(120px,1fr))",
+    display: "flex",
     gap: 10,
+    flexWrap: "wrap",
   },
 
   statusPill: {
-    padding:
-      "6px 10px",
+    padding: "6px 10px",
     borderRadius: 999,
-    border:
-      "1px solid",
-    fontWeight: 900,
+    border: "1px solid",
     fontSize: 12,
+    fontWeight: 900,
   },
 
   viewBtn: {
-    padding:
-      "12px 14px",
+    padding: "10px 12px",
     borderRadius: 14,
     border:
       "1px solid rgba(255,255,255,0.18)",
-    cursor: "pointer",
-    fontWeight: 900,
     background:
       "rgba(255,255,255,0.10)",
     color: "#fff",
-  },
-
-  mapBtn: {
-    padding:
-      "12px 14px",
-    borderRadius: 14,
-    border:
-      "1px solid rgba(60,255,177,0.24)",
-    cursor: "pointer",
     fontWeight: 900,
-    background:
-      "rgba(60,255,177,0.12)",
-    color: "#c8ffe7",
-    textDecoration:
-      "none",
-    textAlign: "center",
+    cursor: "pointer",
   },
 
-  deleteBtn: {
-    padding:
-      "12px 14px",
+  approveBtn: {
+    padding: "10px 12px",
     borderRadius: 14,
     border: "none",
-    cursor: "pointer",
+    background: "#3cffb1",
+    color: "#062112",
     fontWeight: 900,
-    background:
-      "#ff4d4d",
+    cursor: "pointer",
+  },
+
+  rejectBtn: {
+    padding: "10px 12px",
+    borderRadius: 14,
+    border: "none",
+    background: "#ff6363",
     color: "#fff",
+    fontWeight: 900,
+    cursor: "pointer",
+  },
+
+  cashBtn: {
+    padding: "10px 12px",
+    borderRadius: 14,
+    border: "none",
+    background: "#ffd36a",
+    color: "#2a2000",
+    fontWeight: 900,
+    cursor: "pointer",
+  },
+
+  markPaidBtn: {
+    padding: "10px 12px",
+    borderRadius: 14,
+    border: "none",
+    background: "#8fd3ff",
+    color: "#071d2c",
+    fontWeight: 900,
+    cursor: "pointer",
   },
 
   empty: {
@@ -1065,8 +1205,6 @@ const S: Record<
     borderRadius: 14,
     background:
       "rgba(0,0,0,0.18)",
-    border:
-      "1px solid rgba(255,255,255,0.10)",
   },
 
   detailTitle: {
@@ -1075,10 +1213,8 @@ const S: Record<
   },
 
   detailMeta: {
-    fontSize: 13,
-    opacity: 0.84,
+    fontSize: 12,
     marginTop: 4,
-    wordBreak:
-      "break-word",
+    opacity: 0.84,
   },
 };

@@ -1,8 +1,15 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+
 import { api } from "@/lib/api";
+
 import { useRouter } from "next/navigation";
+
 import WasherAvailabilityToggle
 from "@/components/washerswitch";
 
@@ -23,281 +30,565 @@ type Order = {
   washerId: number | null;
   serviceId: number;
   carId: number | null;
+
   address: string;
+
   lat: number | null;
   lng: number | null;
+
   scheduledAt: string;
+
   notes: string | null;
+
   status: OrderStatus;
+
   createdAt: string;
+
   distanceKm: number | null;
 };
 
 export default function WasherJobsPage() {
   const router = useRouter();
-  const [jobs, setJobs] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState("");
 
-  const [notifLoading, setNotifLoading] = useState(false);
-  const [notifEnabled, setNotifEnabled] = useState(false);
-  const [notifMessage, setNotifMessage] = useState("");
+  const [jobs, setJobs] =
+    useState<Order[]>([]);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [err, setErr] =
+    useState("");
+
+  const [gpsActive, setGpsActive] =
+    useState(false);
+
+  const [gpsText, setGpsText] =
+    useState("Starting GPS...");
+
+  const [notifLoading, setNotifLoading] =
+    useState(false);
+
+  const [notifEnabled, setNotifEnabled] =
+    useState(false);
+
+  const [notifMessage, setNotifMessage] =
+    useState("");
+
+  // -----------------------------------
+  // GPS TRACKING HELPERS
+  // -----------------------------------
+
+  const lastSentAtRef =
+    useRef(0);
+
+  const lastLatRef =
+    useRef<number | null>(null);
+
+  const lastLngRef =
+    useRef<number | null>(null);
+
+  // -----------------------------------
+  // SERVICE WORKER
+  // -----------------------------------
 
   async function registerServiceWorker() {
-    if (typeof window === "undefined") return null;
-    if (!("serviceWorker" in navigator)) return null;
+    if (
+      typeof window === "undefined"
+    ) {
+      return null;
+    }
 
-    const existing = await navigator.serviceWorker.getRegistration("/sw.js");
-    if (existing) return existing;
+    if (
+      !("serviceWorker" in navigator)
+    ) {
+      return null;
+    }
 
-    return navigator.serviceWorker.register("/sw.js");
+    const existing =
+      await navigator.serviceWorker.getRegistration(
+        "/sw.js",
+      );
+
+    if (existing) {
+      return existing;
+    }
+
+    return navigator.serviceWorker.register(
+      "/sw.js",
+    );
   }
 
-  function urlBase64ToUint8Array(base64String: string) {
-    const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-    const base64 = (base64String + padding)
+  // -----------------------------------
+  // PUSH HELPERS
+  // -----------------------------------
+
+  function urlBase64ToUint8Array(
+    base64String: string,
+  ) {
+    const padding = "=".repeat(
+      (4 -
+        (base64String.length % 4)) %
+        4,
+    );
+
+    const base64 = (
+      base64String + padding
+    )
       .replace(/-/g, "+")
       .replace(/_/g, "/");
 
-    const rawData = window.atob(base64);
-    const outputArray = new Uint8Array(rawData.length);
+    const rawData =
+      window.atob(base64);
 
-    for (let i = 0; i < rawData.length; ++i) {
-      outputArray[i] = rawData.charCodeAt(i);
+    const outputArray =
+      new Uint8Array(
+        rawData.length,
+      );
+
+    for (
+      let i = 0;
+      i < rawData.length;
+      ++i
+    ) {
+      outputArray[i] =
+        rawData.charCodeAt(i);
     }
 
     return outputArray;
   }
 
+  // -----------------------------------
+  // CHECK PUSH
+  // -----------------------------------
+
   async function checkExistingSubscription() {
     try {
-      if (typeof window === "undefined") return;
-      if (!("serviceWorker" in navigator)) return;
-      if (!("PushManager" in window)) return;
+      if (
+        typeof window ===
+          "undefined" ||
+        !("serviceWorker" in
+          navigator) ||
+        !("PushManager" in
+          window)
+      ) {
+        return;
+      }
 
       const registration =
         (await navigator.serviceWorker.getRegistration()) ||
         (await registerServiceWorker());
 
-      if (!registration) return;
+      if (!registration) {
+        return;
+      }
 
-      const existing = await registration.pushManager.getSubscription();
+      const existing =
+        await registration.pushManager.getSubscription();
+
       if (existing) {
         setNotifEnabled(true);
-        setNotifMessage("Notifications already enabled.");
+
+        setNotifMessage(
+          "Notifications already enabled.",
+        );
       }
     } catch (error) {
-      console.error("Failed to check existing subscription:", error);
+      console.error(error);
     }
   }
+
+  // -----------------------------------
+  // ENABLE PUSH
+  // -----------------------------------
 
   async function enableNotifications() {
     try {
       setNotifLoading(true);
+
       setNotifMessage("");
 
-      if (typeof window === "undefined") {
-        setNotifMessage("Notifications are not available here.");
+      if (
+        typeof window ===
+          "undefined" ||
+        !("serviceWorker" in
+          navigator) ||
+        !("PushManager" in
+          window)
+      ) {
+        setNotifMessage(
+          "Push notifications are not supported.",
+        );
+
         return;
       }
 
-      if (!("serviceWorker" in navigator)) {
-        setNotifMessage("Service workers are not supported on this device.");
-        return;
-      }
+      const publicKey =
+        process.env
+          .NEXT_PUBLIC_WEB_PUSH_PUBLIC_KEY;
 
-      if (!("PushManager" in window)) {
-        setNotifMessage("Push notifications are not supported on this device.");
-        return;
-      }
-
-      const publicKey = process.env.NEXT_PUBLIC_WEB_PUSH_PUBLIC_KEY;
       if (!publicKey) {
-        setNotifMessage("Public push key is missing.");
+        setNotifMessage(
+          "Public push key missing.",
+        );
+
         return;
       }
 
       const registration =
         (await navigator.serviceWorker.getRegistration()) ||
-        (await navigator.serviceWorker.register("/sw.js"));
+        (await navigator.serviceWorker.register(
+          "/sw.js",
+        ));
 
       if (!registration) {
-        setNotifMessage("Service worker registration failed.");
+        setNotifMessage(
+          "Service worker failed.",
+        );
+
         return;
       }
 
-      const permission = await Notification.requestPermission();
+      const permission =
+        await Notification.requestPermission();
 
-      if (permission !== "granted") {
+      if (
+        permission !== "granted"
+      ) {
         setNotifEnabled(false);
-        setNotifMessage("Notification permission was not granted.");
+
+        setNotifMessage(
+          "Notification permission denied.",
+        );
+
         return;
       }
 
-      let subscription = await registration.pushManager.getSubscription();
+      let subscription =
+        await registration.pushManager.getSubscription();
 
       if (!subscription) {
-        subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(publicKey),
-        });
+        subscription =
+          await registration.pushManager.subscribe(
+            {
+              userVisibleOnly:
+                true,
+
+              applicationServerKey:
+                urlBase64ToUint8Array(
+                  publicKey,
+                ),
+            },
+          );
       }
 
-      const subJson = subscription.toJSON();
+      const subJson =
+        subscription.toJSON();
 
-      await api.post("/push-subscriptions", {
-        endpoint: subJson.endpoint,
-        keys: {
-          p256dh: subJson.keys?.p256dh,
-          auth: subJson.keys?.auth,
+      await api.post(
+        "/push-subscriptions",
+        {
+          endpoint:
+            subJson.endpoint,
+
+          keys: {
+            p256dh:
+              subJson.keys
+                ?.p256dh,
+
+            auth:
+              subJson.keys
+                ?.auth,
+          },
+
+          userAgent:
+            navigator.userAgent,
+
+          deviceType:
+            "web",
+
+          isActive: true,
         },
-        userAgent: navigator.userAgent,
-        deviceType: "web",
-        isActive: true,
-      });
+      );
 
       setNotifEnabled(true);
-      setNotifMessage("Notifications enabled successfully ✅");
-    } catch (error: any) {
-      console.error("Failed to subscribe washer push:", error);
-      setNotifEnabled(false);
+
       setNotifMessage(
-        error?.response?.data?.message ||
+        "Notifications enabled ✅",
+      );
+    } catch (error: any) {
+      console.error(error);
+
+      setNotifEnabled(false);
+
+      setNotifMessage(
+        error?.response?.data
+          ?.message ||
           error?.message ||
-          "Failed to enable notifications."
+          "Failed to enable notifications.",
       );
     } finally {
       setNotifLoading(false);
     }
   }
 
-  async function load() {
-    setErr("");
-    setLoading(true);
+  // -----------------------------------
+  // LOAD JOBS
+  // -----------------------------------
 
+  async function load() {
     try {
-      const { data } = await api.get<Order[]>("/orders/available");
+      setLoading(true);
+
+      setErr("");
+
+      const { data } =
+        await api.get<Order[]>(
+          "/orders/available",
+        );
+
       setJobs(data || []);
     } catch (e: any) {
-      setErr(e?.response?.data?.message || e?.message || "Failed to load jobs.");
+      setErr(
+        e?.response?.data
+          ?.message ||
+          e?.message ||
+          "Failed to load jobs.",
+      );
     } finally {
       setLoading(false);
     }
   }
-useEffect(() => {
-  if (
-    typeof window === "undefined" ||
-    !navigator.geolocation
-  ) {
-    console.warn(
-      "Geolocation is not supported",
-    );
-    return;
-  }
 
-  let lastSentAt = 0;
+  // -----------------------------------
+  // LIVE GPS TRACKING
+  // -----------------------------------
 
-  const watchId =
-    navigator.geolocation.watchPosition(
-      async (pos) => {
-        try {
-          const now = Date.now();
+  useEffect(() => {
+    if (
+      typeof window ===
+        "undefined" ||
+      !navigator.geolocation
+    ) {
+      setGpsText(
+        "GPS not supported",
+      );
 
-          // prevent too many requests
-          if (now - lastSentAt < 5000) {
-            return;
-          }
+      return;
+    }
 
-          lastSentAt = now;
+    const watchId =
+      navigator.geolocation.watchPosition(
+        async (pos) => {
+          try {
+            const now =
+              Date.now();
 
-          const lat =
-            pos.coords.latitude;
+            // 15 seconds anti-spam
+            if (
+              now -
+                lastSentAtRef.current <
+              15000
+            ) {
+              return;
+            }
 
-          const lng =
-            pos.coords.longitude;
+            const lat =
+              pos.coords.latitude;
 
-          const accuracy =
-            pos.coords.accuracy;
+            const lng =
+              pos.coords.longitude;
 
-          console.log(
-            "LIVE GPS:",
-            lat,
-            lng,
-            "accuracy:",
-            accuracy,
-          );
+            const accuracy =
+              pos.coords.accuracy;
 
-          // ignore very bad GPS
-          if (
-            accuracy &&
-            accuracy > 100
-          ) {
-            console.warn(
-              "GPS accuracy too low",
+            // bad GPS ignore
+            if (
+              accuracy &&
+              accuracy > 100
+            ) {
+              setGpsText(
+                "Weak GPS signal",
+              );
+
+              return;
+            }
+
+            // movement threshold
+            const movedEnough =
+              lastLatRef.current ==
+                null ||
+              lastLngRef.current ==
+                null ||
+              Math.abs(
+                lat -
+                  lastLatRef.current,
+              ) >
+                0.0001 ||
+              Math.abs(
+                lng -
+                  lastLngRef.current,
+              ) >
+                0.0001;
+
+            if (!movedEnough) {
+              return;
+            }
+
+            lastLatRef.current =
+              lat;
+
+            lastLngRef.current =
+              lng;
+
+            lastSentAtRef.current =
+              now;
+
+            await api.post(
+              "/users/live-location",
+              {
+                lat,
+                lng,
+              },
             );
-            return;
-          }
 
-          await api.post(
-            "/users/live-location",
-            {
+            setGpsActive(true);
+
+            setGpsText(
+              `GPS LIVE • Accuracy ${Math.round(
+                accuracy,
+              )}m`,
+            );
+
+            console.log(
+              "GPS updated:",
               lat,
               lng,
-            },
-          );
+            );
+          } catch (err) {
+            console.error(err);
 
-          console.log(
-            "GPS location updated",
-          );
-        } catch (err) {
-          console.error(
-            "Failed to update GPS",
-            err,
-          );
-        }
-      },
+            setGpsActive(false);
 
-      (err) => {
-        console.error(
-          "Geolocation error:",
-          err,
-        );
-      },
+            setGpsText(
+              "GPS update failed",
+            );
+          }
+        },
 
-      {
-        enableHighAccuracy: true,
-        maximumAge: 5000,
-        timeout: 15000,
-      },
+        (err) => {
+          console.error(err);
+
+          setGpsActive(false);
+
+          setGpsText(
+            "Location permission denied",
+          );
+        },
+
+        {
+          enableHighAccuracy:
+            true,
+
+          maximumAge: 5000,
+
+          timeout: 15000,
+        },
+      );
+
+    return () => {
+      navigator.geolocation.clearWatch(
+        watchId,
+      );
+
+      setGpsActive(false);
+
+      console.log(
+        "GPS stopped",
+      );
+    };
+  }, []);
+
+  // -----------------------------------
+  // VISIBILITY REFRESH
+  // -----------------------------------
+
+  useEffect(() => {
+    function onVisible() {
+      if (
+        document.visibilityState ===
+        "visible"
+      ) {
+        load();
+      }
+    }
+
+    document.addEventListener(
+      "visibilitychange",
+      onVisible,
     );
 
-  return () => {
-    navigator.geolocation.clearWatch(
-      watchId,
-    );
+    return () => {
+      document.removeEventListener(
+        "visibilitychange",
+        onVisible,
+      );
+    };
+  }, []);
 
-    console.log(
-      "Stopped GPS tracking",
-    );
-  };
-}, []);
+  // -----------------------------------
+  // INIT
+  // -----------------------------------
+
   useEffect(() => {
     async function init() {
       await registerServiceWorker();
+
       await checkExistingSubscription();
+
       await load();
     }
 
     init();
   }, []);
 
-  async function accept(orderId: number) {
+  // -----------------------------------
+  // AUTO REFRESH JOBS
+  // -----------------------------------
+
+  useEffect(() => {
+    const interval =
+      setInterval(() => {
+        load();
+      }, 20000);
+
+    return () =>
+      clearInterval(interval);
+  }, []);
+
+  // -----------------------------------
+  // ACCEPT ORDER
+  // -----------------------------------
+
+  async function accept(
+    orderId: number,
+  ) {
     try {
-      await api.post(`/orders/${orderId}/accept`);
+      await api.post(
+        `/orders/${orderId}/accept`,
+      );
+
       alert("Accepted ✅");
-      router.push(`/washer/order?orderId=${orderId}`);
+
+      router.push(
+        `/washer/order?orderId=${orderId}`,
+      );
     } catch (e: any) {
-      alert(e?.response?.data?.message || e?.message || "Accept failed.");
+      alert(
+        e?.response?.data
+          ?.message ||
+          e?.message ||
+          "Accept failed.",
+      );
     }
   }
 
@@ -305,29 +596,121 @@ useEffect(() => {
     <main style={S.page}>
       <header style={S.header}>
         <div>
-          <div style={S.badge}>Washer</div>
-          <h1 style={S.title}>Available jobs</h1>
+          <div style={S.badge}>
+            Washer
+          </div>
+
+          <h1 style={S.title}>
+            Available Jobs
+          </h1>
+
           <div style={S.sub}>
-            Endpoint: <code>/orders/available</code> • Sorted nearest first
+            Live nearest orders
           </div>
         </div>
 
-        <div style={S.headerActions}>
-          <button style={S.btnGhost} onClick={load}>
+        <div
+          style={
+            S.headerActions
+          }
+        >
+          <button
+            style={S.btnGhost}
+            onClick={load}
+          >
             Refresh
           </button>
-          <button style={S.btnGhost} onClick={() => router.push("/")}>
+
+          <button
+            style={S.btnGhost}
+            onClick={() =>
+              router.push("/")
+            }
+          >
             Dashboard
           </button>
         </div>
       </header>
 
+      {/* GPS STATUS */}
+
       <section style={S.card}>
-        <div style={S.notificationsTop}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent:
+              "space-between",
+            alignItems:
+              "center",
+            flexWrap: "wrap",
+            gap: 10,
+          }}
+        >
           <div>
-            <h2 style={S.cardTitle}>Notifications</h2>
-            <div style={S.small}>
-              Enable notifications to receive new order alerts.
+            <h2
+              style={
+                S.cardTitle
+              }
+            >
+              Live GPS
+            </h2>
+
+            <div
+              style={{
+                marginTop: 8,
+                color:
+                  gpsActive
+                    ? "#3cffb1"
+                    : "#ff7a7a",
+                fontWeight: 900,
+                fontSize: 13,
+              }}
+            >
+              {gpsText}
+            </div>
+          </div>
+
+          <div
+            style={{
+              width: 14,
+              height: 14,
+              borderRadius:
+                "50%",
+              background:
+                gpsActive
+                  ? "#3cffb1"
+                  : "#ff7a7a",
+              boxShadow:
+                gpsActive
+                  ? "0 0 18px #3cffb1"
+                  : "0 0 18px #ff7a7a",
+            }}
+          />
+        </div>
+      </section>
+
+      {/* PUSH */}
+
+      <section style={S.card}>
+        <div
+          style={
+            S.notificationsTop
+          }
+        >
+          <div>
+            <h2
+              style={
+                S.cardTitle
+              }
+            >
+              Notifications
+            </h2>
+
+            <div
+              style={S.small}
+            >
+              Receive new
+              order alerts
             </div>
           </div>
 
@@ -336,10 +719,17 @@ useEffect(() => {
               ...S.btnPrimary,
               width: "auto",
               minWidth: 220,
-              opacity: notifLoading ? 0.7 : 1,
+              opacity:
+                notifLoading
+                  ? 0.7
+                  : 1,
             }}
-            onClick={enableNotifications}
-            disabled={notifLoading}
+            onClick={
+              enableNotifications
+            }
+            disabled={
+              notifLoading
+            }
           >
             {notifLoading
               ? "Enabling..."
@@ -353,7 +743,9 @@ useEffect(() => {
           <div
             style={{
               ...S.notice,
-              ...(notifEnabled ? S.noticeOk : S.noticeWarn),
+              ...(notifEnabled
+                ? S.noticeOk
+                : S.noticeWarn),
             }}
           >
             {notifMessage}
@@ -361,65 +753,184 @@ useEffect(() => {
         ) : null}
       </section>
 
-      {loading ? <div style={S.card}>Loading…</div> : null}
-      {err ? (
+      {/* AVAILABILITY */}
+
+      <section style={S.card}>
+        <WasherAvailabilityToggle />
+      </section>
+
+      {/* ERRORS */}
+
+      {loading ? (
         <div style={S.card}>
-          <b>⚠️</b> {err}
+          Loading...
         </div>
       ) : null}
-<section style={S.card}>
-  <WasherAvailabilityToggle />
-</section>
-      <section style={S.card}>
-        <h2 style={S.cardTitle}>Jobs</h2>
 
-        {jobs.length === 0 ? (
-          <div style={S.small}>No jobs right now.</div>
+      {err ? (
+        <div style={S.card}>
+          ⚠️ {err}
+        </div>
+      ) : null}
+
+      {/* JOBS */}
+
+      <section style={S.card}>
+        <h2 style={S.cardTitle}>
+          Jobs
+        </h2>
+
+        {jobs.length ===
+        0 ? (
+          <div style={S.small}>
+            No jobs available.
+          </div>
         ) : (
           <div style={S.jobsList}>
-            {jobs.map((o, index) => (
-              <div key={o.id} style={S.jobRow}>
-                <div style={S.avatar}>🧼</div>
+            {jobs.map(
+              (
+                o,
+                index,
+              ) => (
+                <div
+                  key={o.id}
+                  style={
+                    S.jobRow
+                  }
+                >
+                  <div
+                    style={
+                      S.avatar
+                    }
+                  >
+                    🧼
+                  </div>
 
-                <div style={S.jobMain}>
-                  <div style={S.topLine}>
-                    <div style={S.jobTitle}>
-                      #{index + 1} • Order #{o.id}
+                  <div
+                    style={
+                      S.jobMain
+                    }
+                  >
+                    <div
+                      style={
+                        S.topLine
+                      }
+                    >
+                      <div
+                        style={
+                          S.jobTitle
+                        }
+                      >
+                        #
+                        {index +
+                          1}{" "}
+                        • Order #
+                        {o.id}
+                      </div>
+
+                      <div
+                        style={
+                          S.distancePill
+                        }
+                      >
+                        {o.distanceKm !=
+                        null
+                          ? `${o.distanceKm} km away`
+                          : "Distance unavailable"}
+                      </div>
                     </div>
 
-                    <div style={S.distancePill}>
-                      {o.distanceKm != null
-                        ? `${o.distanceKm} km away`
-                        : "Distance unavailable"}
+                    <div
+                      style={
+                        S.jobMeta
+                      }
+                    >
+                      ⏰{" "}
+                      {new Date(
+                        o.scheduledAt,
+                      ).toLocaleString()}
+                    </div>
+
+                    <div
+                      style={
+                        S.jobMeta
+                      }
+                    >
+                      📍{" "}
+                      {
+                        o.address
+                      }
+                    </div>
+
+                    {o.lat !=
+                      null &&
+                    o.lng !=
+                      null ? (
+                      <div
+                        style={
+                          S.jobMeta
+                        }
+                      >
+                        GPS: (
+                        {o.lat.toFixed(
+                          4,
+                        )}
+                        ,{" "}
+                        {o.lng.toFixed(
+                          4,
+                        )}
+                        )
+                      </div>
+                    ) : null}
+
+                    {o.notes ? (
+                      <div
+                        style={
+                          S.jobMeta
+                        }
+                      >
+                        📝{" "}
+                        {
+                          o.notes
+                        }
+                      </div>
+                    ) : null}
+
+                    <div
+                      style={
+                        S.jobMeta
+                      }
+                    >
+                      Status:{" "}
+                      <b>
+                        {
+                          o.status
+                        }
+                      </b>
                     </div>
                   </div>
 
-                  <div style={S.jobMeta}>
-                    ⏰ {new Date(o.scheduledAt).toLocaleString()}
-                  </div>
-
-                  <div style={S.jobMeta}>📍 {o.address}</div>
-
-                  {o.lat != null && o.lng != null ? (
-                    <div style={S.jobMeta}>
-                      GPS: ({o.lat.toFixed(4)}, {o.lng.toFixed(4)})
-                    </div>
-                  ) : null}
-
-                  {o.notes ? <div style={S.jobMeta}>📝 {o.notes}</div> : null}
-
-                  <div style={S.jobMeta}>
-                    Status: <b>{o.status}</b>
+                  <div
+                    style={
+                      S.actionBox
+                    }
+                  >
+                    <button
+                      style={
+                        S.btnPrimary
+                      }
+                      onClick={() =>
+                        accept(
+                          o.id,
+                        )
+                      }
+                    >
+                      Accept
+                    </button>
                   </div>
                 </div>
-
-                <div style={S.actionBox}>
-                  <button style={S.btnPrimary} onClick={() => accept(o.id)}>
-                    Accept
-                  </button>
-                </div>
-              </div>
-            ))}
+              ),
+            )}
           </div>
         )}
       </section>
@@ -427,23 +938,31 @@ useEffect(() => {
   );
 }
 
-const S: Record<string, React.CSSProperties> = {
+const S: Record<
+  string,
+  React.CSSProperties
+> = {
   page: {
     minHeight: "100vh",
-    padding: "16px",
-    background: "#0b0f19",
+    padding: 16,
+    background:
+      "#0b0f19",
     color: "#fff",
-    fontFamily: "ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial",
+    fontFamily:
+      "ui-sans-serif,system-ui",
   },
 
   header: {
     display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
+    justifyContent:
+      "space-between",
+    alignItems:
+      "flex-start",
     gap: 12,
     flexWrap: "wrap",
     marginBottom: 14,
   },
+
   headerActions: {
     display: "flex",
     gap: 10,
@@ -451,42 +970,77 @@ const S: Record<string, React.CSSProperties> = {
   },
 
   badge: {
-    display: "inline-flex",
+    display:
+      "inline-flex",
     padding: "6px 10px",
     borderRadius: 999,
-    background: "rgba(255,255,255,0.10)",
-    border: "1px solid rgba(255,255,255,0.14)",
+    background:
+      "rgba(255,255,255,0.10)",
+    border:
+      "1px solid rgba(255,255,255,0.14)",
     fontWeight: 900,
     fontSize: 12,
-    width: "fit-content",
   },
+
   title: {
     margin: 0,
     fontSize: 28,
     fontWeight: 950,
   },
+
   sub: {
     marginTop: 6,
-    opacity: 0.85,
+    opacity: 0.82,
   },
 
   card: {
-    background: "rgba(255,255,255,0.06)",
-    border: "1px solid rgba(255,255,255,0.12)",
+    background:
+      "rgba(255,255,255,0.06)",
+    border:
+      "1px solid rgba(255,255,255,0.12)",
     borderRadius: 18,
     padding: 16,
     marginTop: 14,
   },
+
   cardTitle: {
     margin: 0,
     fontSize: 18,
     fontWeight: 900,
   },
 
+  btnGhost: {
+    background:
+      "rgba(255,255,255,0.10)",
+    color: "#fff",
+    padding: "10px 12px",
+    borderRadius: 14,
+    fontWeight: 800,
+    border:
+      "1px solid rgba(255,255,255,0.14)",
+    cursor: "pointer",
+  },
+
+  btnPrimary: {
+    padding: "12px 14px",
+    borderRadius: 14,
+    border: "none",
+    cursor: "pointer",
+    fontWeight: 950,
+    background:
+      "#3cffb1",
+    color: "#062112",
+    whiteSpace:
+      "nowrap",
+    width: "100%",
+  },
+
   notificationsTop: {
     display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
+    justifyContent:
+      "space-between",
+    alignItems:
+      "center",
     gap: 12,
     flexWrap: "wrap",
   },
@@ -498,36 +1052,21 @@ const S: Record<string, React.CSSProperties> = {
     fontSize: 13,
     fontWeight: 700,
   },
+
   noticeOk: {
-    background: "rgba(60,255,177,0.12)",
-    border: "1px solid rgba(60,255,177,0.24)",
+    background:
+      "rgba(60,255,177,0.12)",
+    border:
+      "1px solid rgba(60,255,177,0.24)",
     color: "#c8ffe7",
   },
-  noticeWarn: {
-    background: "rgba(255,99,99,0.10)",
-    border: "1px solid rgba(255,99,99,0.22)",
-    color: "#ffd0d0",
-  },
 
-  btnGhost: {
-    background: "rgba(255,255,255,0.10)",
-    color: "#fff",
-    padding: "10px 12px",
-    borderRadius: 14,
-    fontWeight: 800,
-    border: "1px solid rgba(255,255,255,0.14)",
-    cursor: "pointer",
-  },
-  btnPrimary: {
-    padding: "12px 14px",
-    borderRadius: 14,
-    border: "none",
-    cursor: "pointer",
-    fontWeight: 950,
-    background: "#3cffb1",
-    color: "#062112",
-    whiteSpace: "nowrap",
-    width: "100%",
+  noticeWarn: {
+    background:
+      "rgba(255,99,99,0.10)",
+    border:
+      "1px solid rgba(255,99,99,0.22)",
+    color: "#ffd0d0",
   },
 
   jobsList: {
@@ -538,22 +1077,26 @@ const S: Record<string, React.CSSProperties> = {
 
   jobRow: {
     display: "flex",
-    alignItems: "stretch",
+    alignItems:
+      "stretch",
     gap: 12,
-    padding: "12px",
+    padding: 12,
     borderRadius: 16,
-    background: "rgba(0,0,0,0.18)",
-    border: "1px solid rgba(255,255,255,0.10)",
+    background:
+      "rgba(0,0,0,0.18)",
+    border:
+      "1px solid rgba(255,255,255,0.10)",
     flexWrap: "wrap",
   },
+
   avatar: {
     width: 46,
     height: 46,
     borderRadius: 16,
     display: "grid",
     placeItems: "center",
-    background: "rgba(255,255,255,0.10)",
-    flex: "0 0 46px",
+    background:
+      "rgba(255,255,255,0.10)",
     fontSize: 20,
   },
 
@@ -561,41 +1104,45 @@ const S: Record<string, React.CSSProperties> = {
     flex: "1 1 280px",
     minWidth: 0,
   },
+
   topLine: {
     display: "flex",
     gap: 10,
-    justifyContent: "space-between",
-    alignItems: "center",
+    justifyContent:
+      "space-between",
+    alignItems:
+      "center",
     flexWrap: "wrap",
   },
+
   jobTitle: {
     fontWeight: 950,
-    minWidth: 0,
   },
+
   distancePill: {
-    display: "inline-flex",
-    alignItems: "center",
     padding: "6px 10px",
     borderRadius: 999,
-    background: "rgba(60,255,177,0.12)",
-    border: "1px solid rgba(60,255,177,0.24)",
+    background:
+      "rgba(60,255,177,0.12)",
+    border:
+      "1px solid rgba(60,255,177,0.24)",
     color: "#c8ffe7",
     fontWeight: 900,
     fontSize: 12,
-    whiteSpace: "nowrap",
   },
+
   jobMeta: {
     opacity: 0.82,
     fontSize: 12,
     marginTop: 5,
     lineHeight: 1.4,
-    wordBreak: "break-word",
   },
 
   actionBox: {
     flex: "1 1 140px",
     display: "flex",
-    alignItems: "center",
+    alignItems:
+      "center",
     minWidth: 120,
   },
 
