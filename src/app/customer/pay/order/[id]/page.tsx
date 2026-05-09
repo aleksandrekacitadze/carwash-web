@@ -61,6 +61,12 @@ export default function PayOrderPage() {
   const [payLoading, setPayLoading] =
     useState(false);
 
+  const [checkingPayment, setCheckingPayment] =
+    useState(false);
+
+  const [paymentVerified, setPaymentVerified] =
+    useState(false);
+
   const [acceptedNotified, setAcceptedNotified] =
     useState(false);
 
@@ -73,10 +79,6 @@ export default function PayOrderPage() {
     order?.isPaid !== true &&
     order?.paymentStatus !== "PAID";
 
-  // --------------------------------------------------
-  // EFFECT
-  // --------------------------------------------------
-
   useEffect(() => {
     audioRef.current = new Audio(
       "/sounds/order-accepted.mp3",
@@ -84,27 +86,29 @@ export default function PayOrderPage() {
 
     init();
 
+    pollPaymentStatus();
+
     const interval = setInterval(() => {
       loadOrder(false);
     }, 3000);
 
-    return () => clearInterval(interval);
+    const paymentInterval =
+      setInterval(() => {
+        pollPaymentStatus();
+      }, 5000);
+
+    return () => {
+      clearInterval(interval);
+      clearInterval(paymentInterval);
+    };
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId, acceptedNotified]);
-
-  // --------------------------------------------------
-  // INIT
-  // --------------------------------------------------
 
   async function init() {
     await loadMe();
     await loadOrder();
   }
-
-  // --------------------------------------------------
-  // LOAD USER
-  // --------------------------------------------------
 
   async function loadMe() {
     try {
@@ -121,10 +125,6 @@ export default function PayOrderPage() {
     }
   }
 
-  // --------------------------------------------------
-  // TOAST
-  // --------------------------------------------------
-
   function showToast(message: string) {
     setToast(message);
 
@@ -133,19 +133,11 @@ export default function PayOrderPage() {
     }, 4000);
   }
 
-  // --------------------------------------------------
-  // VIBRATION
-  // --------------------------------------------------
-
   function vibrateAccepted() {
     if ("vibrate" in navigator) {
       navigator.vibrate([250, 120, 250]);
     }
   }
-
-  // --------------------------------------------------
-  // AUDIO
-  // --------------------------------------------------
 
   async function unlockAudio() {
     try {
@@ -158,10 +150,6 @@ export default function PayOrderPage() {
       }
     } catch {}
   }
-
-  // --------------------------------------------------
-  // RECALCULATE LIVE PRICE
-  // --------------------------------------------------
 
   async function refreshAcceptedPrice() {
     if (!orderId) return;
@@ -185,10 +173,6 @@ export default function PayOrderPage() {
     }
   }
 
-  // --------------------------------------------------
-  // LOAD ORDER
-  // --------------------------------------------------
-
   async function loadOrder(
     showLoading = true,
   ) {
@@ -208,16 +192,11 @@ export default function PayOrderPage() {
 
       setOrder(data);
 
-      // initial amount
       if (data.pricePaid) {
         setAmount(
           String(data.pricePaid),
         );
       }
-
-      // ----------------------------------------------
-      // ACCEPTED
-      // ----------------------------------------------
 
       if (
         data.status === "ACCEPTED" &&
@@ -235,17 +214,12 @@ export default function PayOrderPage() {
           await audioRef.current?.play();
         } catch {}
 
-        // ✅ LIVE RECALCULATION
         await refreshAcceptedPrice();
 
         showToast(
           "✅ Final live price updated.",
         );
       }
-
-      // ----------------------------------------------
-      // PAID
-      // ----------------------------------------------
 
       if (
         data.isPaid ||
@@ -268,9 +242,42 @@ export default function PayOrderPage() {
     }
   }
 
-  // --------------------------------------------------
-  // PAYMENT
-  // --------------------------------------------------
+  async function pollPaymentStatus() {
+    if (!orderId) return;
+
+    try {
+      setCheckingPayment(true);
+
+      const { data } =
+        await api.get(
+          `/payments/check/order/${orderId}`,
+        );
+
+      if (
+        data?.paid === true ||
+        data?.status === "CAPTURED"
+      ) {
+        setPaymentVerified(true);
+
+        showToast(
+          "✅ Payment verified successfully.",
+        );
+
+        router.push(
+          `/orders/${orderId}/waiting`,
+        );
+
+        return;
+      }
+    } catch (e) {
+      console.error(
+        "Payment polling failed",
+        e,
+      );
+    } finally {
+      setCheckingPayment(false);
+    }
+  }
 
   async function payWithKeepz() {
     try {
@@ -343,10 +350,6 @@ export default function PayOrderPage() {
       setPayLoading(false);
     }
   }
-
-  // --------------------------------------------------
-  // UI
-  // --------------------------------------------------
 
   return (
     <div
@@ -484,6 +487,18 @@ export default function PayOrderPage() {
                 ? "Creating payment..."
                 : "Pay with KEEPZ"}
             </button>
+
+            {checkingPayment ? (
+              <div style={S.small}>
+                Checking payment status...
+              </div>
+            ) : null}
+
+            {paymentVerified ? (
+              <div style={S.okBox}>
+                ✅ Payment verified.
+              </div>
+            ) : null}
 
             <div style={S.small}>
               Backend gets userId
@@ -667,4 +682,4 @@ const S: Record<
 
     textAlign: "center",
   },
-}; 
+};
