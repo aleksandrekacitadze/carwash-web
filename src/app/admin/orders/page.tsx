@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import AdminCancelRequestsPanel
+from "@/components/admin/AdminCancelRequestsPanel";
 
 type OrderItem = {
   id: number;
@@ -782,7 +784,9 @@ export default function AdminOrdersPage() {
                         </button>
                       </>
                     ) : null}
-
+<div style={{ marginBottom: 20 }}>
+  <AdminCancelRequestsPanel />
+</div>
                     {o.paymentMode ===
                       "CASH" &&
                     o.paymentStatus !==

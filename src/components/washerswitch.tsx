@@ -58,79 +58,77 @@ export default function WasherAvailabilityToggle() {
   // LIVE GPS UPDATE
   // -----------------------------------------
 
-  async function updateLiveLocation() {
-    try {
-      if (
-        !navigator.geolocation
-      ) {
-        return;
-      }
-
-      navigator.geolocation.getCurrentPosition(
-        async (pos) => {
-          try {
-            const lat =
-              pos.coords.latitude;
-
-            const lng =
-              pos.coords.longitude;
-
-            await api.post(
-              "/users/location",
-              {
-                lat,
-                lng,
-              },
-            );
-          } catch (err) {
-            console.error(
-              "Location update failed",
-              err,
-            );
-          }
-        },
-
-        (err) => {
-          console.error(err);
-        },
-
-        {
-          enableHighAccuracy: true,
-        },
-      );
-    } catch (err) {
-      console.error(err);
-    }
-  }
+  
 
   // -----------------------------------------
   // GPS POLLING
   // -----------------------------------------
 
-  useEffect(() => {
-    if (
-      status !== "AVAILABLE" &&
-      status !==
-        "RETURNING_TO_CUSTOMER"
-    ) {
-      return;
-    }
-
-    updateLiveLocation();
-
-    const interval =
-      setInterval(() => {
-        updateLiveLocation();
-      }, 10000);
-
-    return () =>
-      clearInterval(interval);
-  }, [status]);
 
   // -----------------------------------------
   // GO ONLINE
   // -----------------------------------------
+useEffect(() => {
+  if (
+    status !== "AVAILABLE" &&
+    status !==
+      "RETURNING_TO_CUSTOMER" &&
+    status !== "BUSY"
+  ) {
+    return;
+  }
 
+  if (
+    !navigator.geolocation
+  ) {
+    return;
+  }
+
+  const watchId =
+    navigator.geolocation.watchPosition(
+      async (pos) => {
+        try {
+          const lat =
+            pos.coords.latitude;
+
+          const lng =
+            pos.coords.longitude;
+
+          await api.post(
+            "/users/location",
+            {
+              lat,
+              lng,
+            },
+          );
+        } catch (err) {
+          console.error(
+            "Location update failed",
+            err,
+          );
+        }
+      },
+
+      (err) => {
+        console.error(
+          "GPS watch error",
+          err,
+        );
+      },
+
+      {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: 15000,
+      },
+    );
+
+  return () => {
+    navigator.geolocation.clearWatch(
+      watchId,
+    );
+  };
+}, [status]);
   async function goOnline() {
     try {
       setLoading(true);
@@ -141,7 +139,7 @@ export default function WasherAvailabilityToggle() {
 
       setStatus("AVAILABLE");
 
-      await updateLiveLocation();
+      
     } catch (err) {
       console.error(err);
 
@@ -223,61 +221,119 @@ export default function WasherAvailabilityToggle() {
         </span>
       </div>
 
-      {isBusy ? (
-        <button
-          disabled
-          style={{
-            ...styles.button,
-            backgroundColor:
-              "#f59e0b",
-            cursor:
-              "not-allowed",
-            opacity: 0.85,
-          }}
-        >
-          Busy On Order
-        </button>
-      ) : isReturning ? (
-        <button
-          disabled
-          style={{
-            ...styles.button,
-            backgroundColor:
-              "#3b82f6",
-            opacity: 0.9,
-          }}
-        >
-          Returning To Customer
-        </button>
-      ) : isOnline ? (
-        <button
-          onClick={goOffline}
-          disabled={loading}
-          style={{
-            ...styles.button,
-            backgroundColor:
-              "#ef4444",
-          }}
-        >
-          {loading
-            ? "Loading..."
-            : "Go Offline"}
-        </button>
-      ) : (
-        <button
-          onClick={goOnline}
-          disabled={loading}
-          style={{
-            ...styles.button,
-            backgroundColor:
-              "#22c55e",
-          }}
-        >
-          {loading
-            ? "Loading..."
-            : "Go Online"}
-        </button>
-      )}
+    {/* ----------------------------------------- */}
+{/* BUTTONS */}
+{/* ----------------------------------------- */}
+
+{isBusy ? (
+  <div
+    style={{
+      display: "flex",
+      flexDirection: "column",
+      gap: 10,
+      width: "100%",
+    }}
+  >
+    <button
+      onClick={goOnline}
+      disabled={loading}
+      style={{
+        ...styles.button,
+        backgroundColor:
+          "#22c55e",
+        opacity: loading ? 0.7 : 1,
+      }}
+    >
+      {loading
+        ? "Loading..."
+        : "Switch To Online"}
+    </button>
+
+    <button
+      onClick={goOffline}
+      disabled={loading}
+      style={{
+        ...styles.button,
+        backgroundColor:
+          "#ef4444",
+        opacity: loading ? 0.7 : 1,
+      }}
+    >
+      {loading
+        ? "Loading..."
+        : "Go Offline"}
+    </button>
+  </div>
+) : isReturning ? (
+  <div
+    style={{
+      display: "flex",
+      flexDirection: "column",
+      gap: 10,
+      width: "100%",
+    }}
+  >
+    <button
+      onClick={goOnline}
+      disabled={loading}
+      style={{
+        ...styles.button,
+        backgroundColor:
+          "#22c55e",
+        opacity: loading ? 0.7 : 1,
+      }}
+    >
+      {loading
+        ? "Loading..."
+        : "Switch To Online"}
+    </button>
+
+    <button
+      onClick={goOffline}
+      disabled={loading}
+      style={{
+        ...styles.button,
+        backgroundColor:
+          "#ef4444",
+        opacity: loading ? 0.7 : 1,
+      }}
+    >
+      {loading
+        ? "Loading..."
+        : "Go Offline"}
+    </button>
+  </div>
+) : isOnline ? (
+  <button
+    onClick={goOffline}
+    disabled={loading}
+    style={{
+      ...styles.button,
+      backgroundColor:
+        "#ef4444",
+      opacity: loading ? 0.7 : 1,
+    }}
+  >
+    {loading
+      ? "Loading..."
+      : "Go Offline"}
+  </button>
+) : (
+  <button
+    onClick={goOnline}
+    disabled={loading}
+    style={{
+      ...styles.button,
+      backgroundColor:
+        "#22c55e",
+      opacity: loading ? 0.7 : 1,
+    }}
+  >
+    {loading
+      ? "Loading..."
+      : "Go Online"}
+  </button>
+)}
     </div>
   );
 }
