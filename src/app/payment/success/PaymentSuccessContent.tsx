@@ -18,10 +18,14 @@ export default function PaymentSuccessPage() {
   const searchParams =
     useSearchParams();
 
-  const orderId =
-    searchParams.get(
-      "orderId",
-    );
+const rawOrderId =
+  searchParams.get(
+    "orderId",
+  ) || "";
+
+const orderId =
+  rawOrderId.match(/\d+/)?.[0] ||
+  "";
 
   const [status, setStatus] =
     useState(
