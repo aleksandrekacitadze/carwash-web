@@ -98,7 +98,7 @@ export default function WaitingPage() {
   const [order, setOrder] = useState<Order | null>(null);
   const [live, setLive] = useState<LiveResp | null>(null);
   const [eta, setEta] = useState<LiveEtaResp | null>(null);
-
+  const [lastWashers, setLastWashers] = useState<LiveResp["washers"]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [cancelReason, setCancelReason] = useState("");
@@ -123,16 +123,23 @@ export default function WaitingPage() {
     }
   }
 
-  async function fetchLive() {
-    if (!orderId) return;
-    try {
-      const { data } = await api.get<LiveResp>(`/orders/${orderId}/live`);
-      setLive(data);
-    } catch {
-      // silent
-    }
-  }
+ async function fetchLive() {
+  if (!orderId) return;
 
+  try {
+    const { data } = await api.get<LiveResp>(
+      `/orders/${orderId}/live`
+    );
+
+    setLive(data);
+
+    if (data.washers && data.washers.length > 0) {
+      setLastWashers(data.washers);
+    }
+  } catch {
+    // silent
+  }
+}
   async function fetchLiveEta() {
     if (!orderId) return;
     try {
@@ -285,8 +292,13 @@ export default function WaitingPage() {
   const mapMode =
     live?.mode ?? (order?.status === "REQUESTED" ? "NEARBY_WASHERS" : "ASSIGNED_WASHER");
 
-  const mapWashers = useMemo(() => live?.washers ?? [], [live?.washers]);
+const mapWashers = useMemo(() => {
+  if (live?.washers && live.washers.length > 0) {
+    return live.washers;
+  }
 
+  return lastWashers;
+}, [live?.washers, lastWashers]);
   const assignedWasherId = useMemo(
     () => live?.assignedWasherId ?? order?.washerId ?? null,
     [live?.assignedWasherId, order?.washerId]
