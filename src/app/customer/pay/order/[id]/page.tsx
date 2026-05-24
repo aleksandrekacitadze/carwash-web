@@ -280,76 +280,146 @@ export default function PayOrderPage() {
   }
 
   async function payWithKeepz() {
-    try {
-      await unlockAudio();
+  try {
+    await unlockAudio();
 
-      setPayLoading(true);
+    setPayLoading(true);
 
-      setErr("");
+    setErr("");
 
-      if (!me?.id) {
-        throw new Error(
-          "User not found. Please login again.",
-        );
-      }
+    if (!me?.id) {
+      throw new Error(
+        "User not found. Please login again.",
+      );
+    }
 
-      if (!order) {
-        throw new Error(
-          "Order not loaded.",
-        );
-      }
+    if (!order) {
+      throw new Error(
+        "Order not loaded.",
+      );
+    }
 
-      if (
-        order.status !== "ACCEPTED"
-      ) {
-        throw new Error(
-          "Wait until washer accepts your order.",
-        );
-      }
+    /// --------------------------------------
+    /// CHECK ORDER BEFORE PAYMENT
+    /// --------------------------------------
 
-      const finalAmount =
-        Number(amount);
-
-      if (
-        !Number.isFinite(finalAmount) ||
-        finalAmount <= 0
-      ) {
-        throw new Error(
-          "Invalid payment amount.",
-        );
-      }
-
-      const { data } =
-        await api.post<{
-          paymentId: number;
-          providerOrderId: string;
-          checkoutUrl: string;
-        }>("/payments/create", {
-          kind: "ORDER",
-          orderId: order.id,
-          provider: "KEEPZ",
-          amount: finalAmount,
-          currency: "GEL",
-        });
-
-      if (!data.checkoutUrl) {
-        throw new Error(
-          "Payment checkout URL missing.",
-        );
-      }
-
-      window.location.href =
-        data.checkoutUrl;
-    } catch (e: any) {
-      setErr(
-        e?.response?.data?.message ||
-          e?.message ||
-          "Failed to create payment.",
+    const check =
+      await api.post(
+        `/orders/${order.id}/check-before-payment`,
       );
 
-      setPayLoading(false);
+    const checkData =
+      check.data;
+
+    /// --------------------------------------
+    /// EXPIRED ACCEPT
+    /// --------------------------------------
+
+    if (
+      checkData?.canPay === false &&
+      checkData?.action ===
+        "SEARCH_NEW_WASHER"
+    ) {
+      showToast(
+        "⚠️ Washer accept expired. Searching for a new washer...",
+      );
+
+      setAcceptedNotified(false);
+
+      await loadOrder(false);
+
+      return;
     }
+
+    /// --------------------------------------
+    /// STILL SEARCHING
+    /// --------------------------------------
+
+    if (
+      checkData?.canPay === false
+    ) {
+      throw new Error(
+        checkData?.message ||
+          "Order cannot be paid now.",
+      );
+    }
+
+    /// --------------------------------------
+    /// REFRESH LIVE PRICE
+    /// --------------------------------------
+
+    const recalc =
+      await api.post<{
+        totalPriceGel: number;
+      }>(
+        "/orders/recalculate-price",
+        {
+          orderId,
+        },
+      );
+
+    const finalAmount =
+      Number(
+        recalc.data
+          ?.totalPriceGel ??
+          amount,
+      );
+
+    if (
+      !Number.isFinite(
+        finalAmount,
+      ) ||
+      finalAmount <= 0
+    ) {
+      throw new Error(
+        "Invalid payment amount.",
+      );
+    }
+
+    setAmount(
+      String(finalAmount),
+    );
+
+    /// --------------------------------------
+    /// CREATE PAYMENT
+    /// --------------------------------------
+
+    const { data } =
+      await api.post<{
+        paymentId: number;
+        providerOrderId: string;
+        checkoutUrl: string;
+      }>("/payments/create", {
+        kind: "ORDER",
+
+        orderId: order.id,
+
+        provider: "KEEPZ",
+
+        amount: finalAmount,
+
+        currency: "GEL",
+      });
+
+    if (!data.checkoutUrl) {
+      throw new Error(
+        "Payment checkout URL missing.",
+      );
+    }
+
+    window.location.href =
+      data.checkoutUrl;
+  } catch (e: any) {
+    setErr(
+      e?.response?.data
+        ?.message ||
+        e?.message ||
+        "Failed to create payment.",
+    );
+
+    setPayLoading(false);
   }
+}
 
   return (
     <div
