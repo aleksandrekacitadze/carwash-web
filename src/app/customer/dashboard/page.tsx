@@ -64,6 +64,9 @@ type PriceQuote = {
   totalPriceGel: number;
   nearestWasherId: number | null;
   source: "AVAILABLE_WASHER" | "RETURNING_TO_CUSTOMER" | null;
+
+  hasNearbyOnlineWasher?: boolean;
+
   message?: string;
 };
 
@@ -179,7 +182,11 @@ export default function CustomerDashboardPage() {
     () => services.find((s) => s.id === serviceId) || null,
     [services, serviceId],
   );
+const [notifyWhenWasherAvailable, setNotifyWhenWasherAvailable] =
+  useState(false);
 
+const [showNoWasherDialog, setShowNoWasherDialog] =
+  useState(false);
   const [locMode, setLocMode] = useState<LocationMode>("GPS");
 
   const [gpsLoading, setGpsLoading] = useState(false);
@@ -294,32 +301,46 @@ export default function CustomerDashboardPage() {
     );
   }
 
-  async function loadPriceQuote() {
-    if (!selectedService || !currentCoords) {
-      setPriceQuote(null);
-      return;
-    }
+async function loadPriceQuote() {
+  if (!selectedService || !currentCoords) {
+    setPriceQuote(null);
+    return;
+  }
 
-    try {
-      setPriceQuoteLoading(true);
-      setPriceQuoteErr("");
+  try {
+    setPriceQuoteLoading(true);
+    setPriceQuoteErr("");
 
-      const { data } = await api.post<PriceQuote>("/orders/price-quote", {
+    const { data } = await api.post<PriceQuote>(
+      "/orders/price-quote",
+      {
         serviceId: selectedService.id,
         lat: currentCoords.lat,
         lng: currentCoords.lng,
-      });
+      },
+    );
 
-      setPriceQuote(data);
-    } catch (e: any) {
-      setPriceQuote(null);
-      setPriceQuoteErr(
-        e?.response?.data?.message || e?.message || "Failed to calculate price.",
-      );
-    } finally {
-      setPriceQuoteLoading(false);
+    setPriceQuote(data);
+
+    if (
+      data.hasNearbyOnlineWasher === false
+    ) {
+      setShowNoWasherDialog(true);
+    } else {
+      setShowNoWasherDialog(false);
     }
+  } catch (e: any) {
+    setPriceQuote(null);
+
+    setPriceQuoteErr(
+      e?.response?.data?.message ||
+        e?.message ||
+        "Failed to calculate price.",
+    );
+  } finally {
+    setPriceQuoteLoading(false);
   }
+}
 
   async function pickCarImage() {
     fileRef.current?.click();
@@ -596,6 +617,8 @@ export default function CustomerDashboardPage() {
       lng: locMode === "GPS" ? gpsCoords!.lng : manualCoords?.lng,
       scheduledAt,
       notes: addressForm.comment || null,
+      notifyWhenWasherAvailable,
+
       paymentMode,
       ...(paymentMode === "DIRECT" || paymentMode === "CASH"
         ? { price: String(finalWashPrice) }
@@ -810,7 +833,43 @@ export default function CustomerDashboardPage() {
                     />
                   </div>
                 </div>
+{showNoWasherDialog && (
+  <div style={S.modalOverlay}>
+    <div style={S.modalCard}>
+      <div style={S.modalIcon}>🧽</div>
 
+      <h2 style={S.modalTitle}>
+        No washer nearby right now
+      </h2>
+
+      <p style={S.modalText}>
+        We can still save your order and call/notify you when a washer becomes available near you.
+      </p>
+
+      <div style={S.modalActions}>
+        <button
+          style={S.modalSecondaryBtn}
+          onClick={() => {
+            setNotifyWhenWasherAvailable(false);
+            setShowNoWasherDialog(false);
+          }}
+        >
+          Continue anyway
+        </button>
+
+        <button
+          style={S.modalPrimaryBtn}
+          onClick={() => {
+            setNotifyWhenWasherAvailable(true);
+            setShowNoWasherDialog(false);
+          }}
+        >
+          Notify me
+        </button>
+      </div>
+    </div>
+  </div>
+)}
                 <div style={S.pricesBox}>
                   <div style={S.pricesTitle}>Service</div>
 
@@ -1160,7 +1219,78 @@ const S: Record<string, React.CSSProperties> = {
     borderRadius: 10,
     textDecoration: "none",
   },
+modalOverlay: {
+  position: "fixed",
+  inset: 0,
+  zIndex: 9999,
+  background: "rgba(0,0,0,0.72)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 18,
+},
 
+modalCard: {
+  width: "100%",
+  maxWidth: 420,
+  borderRadius: 24,
+  background: "#ffffff",
+  color: "#0b0f19",
+  padding: 24,
+  boxShadow: "0 24px 80px rgba(0,0,0,0.45)",
+},
+
+modalIcon: {
+  width: 58,
+  height: 58,
+  borderRadius: 18,
+  background: "#eefdf6",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontSize: 30,
+  marginBottom: 14,
+},
+
+modalTitle: {
+  margin: 0,
+  fontSize: 22,
+  fontWeight: 900,
+},
+
+modalText: {
+  marginTop: 10,
+  color: "#4b5563",
+  lineHeight: 1.5,
+  fontSize: 14,
+},
+
+modalActions: {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 10,
+  marginTop: 22,
+},
+
+modalSecondaryBtn: {
+  border: "1px solid #d1d5db",
+  background: "#fff",
+  color: "#111827",
+  borderRadius: 14,
+  padding: "12px 10px",
+  fontWeight: 900,
+  cursor: "pointer",
+},
+
+modalPrimaryBtn: {
+  border: "none",
+  background: "#0b0f19",
+  color: "#fff",
+  borderRadius: 14,
+  padding: "12px 10px",
+  fontWeight: 900,
+  cursor: "pointer",
+},
   secondaryBtn: {
     background: "rgba(255,255,255,0.10)",
     color: "#fff",
