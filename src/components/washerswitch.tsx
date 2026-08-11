@@ -348,14 +348,13 @@ const styles: Record<
     padding: 20,
     borderRadius: 24,
 
-    background:
-      "rgba(255,255,255,0.06)",
+    background: "var(--surface)",
 
     backdropFilter:
       "blur(12px)",
 
     border:
-      "1px solid rgba(255,255,255,0.08)",
+      "1px solid var(--line)",
 
     display: "flex",
     flexDirection: "column",

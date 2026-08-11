@@ -13,11 +13,11 @@ type Weather = {
 };
 
 function weatherText(code?: number) {
-  if (code === 0) return "Clear";
+  if (code === 0) return "Clear skies";
   if ([1, 2, 3].includes(code ?? -1)) return "Cloudy";
-  if ([51, 53, 55, 61, 63, 65].includes(code ?? -1)) return "Rain";
-  if ([71, 73, 75].includes(code ?? -1)) return "Snow";
-  return "Weather";
+  if ([51, 53, 55, 61, 63, 65].includes(code ?? -1)) return "Rainy";
+  if ([71, 73, 75].includes(code ?? -1)) return "Snowy";
+  return "Live weather";
 }
 
 export default function LiveWeatherBar() {
@@ -41,14 +41,14 @@ export default function LiveWeatherBar() {
 
   return (
     <div style={S.bar}>
-      <b>🌤 Tbilisi Weather</b>
+      <span style={S.brandHint}>Tbilisi</span>
       {w ? (
         <span>
-          {Math.round(w.temperature_2m)}°C • Feels {Math.round(w.apparent_temperature)}°C •{" "}
-          {weatherText(w.weather_code)} • Wind {Math.round(w.wind_speed_10m)} km/h
+          {Math.round(w.temperature_2m)}° · {weatherText(w.weather_code)} · feels{" "}
+          {Math.round(w.apparent_temperature)}°
         </span>
       ) : (
-        <span>Loading weather...</span>
+        <span>Checking the weather…</span>
       )}
     </div>
   );
@@ -57,14 +57,20 @@ export default function LiveWeatherBar() {
 const S: Record<string, React.CSSProperties> = {
   bar: {
     width: "100%",
-    padding: "10px 16px",
-    background: "#07111f",
-    color: "#fff",
+    padding: "8px 16px",
+    background: "rgba(255,255,255,0.55)",
+    backdropFilter: "blur(10px)",
+    color: "var(--ink-soft)",
     display: "flex",
     justifyContent: "center",
-    gap: 14,
+    alignItems: "center",
+    gap: 10,
     flexWrap: "wrap",
-    fontSize: 14,
-    borderBottom: "1px solid rgba(255,255,255,0.12)",
+    fontSize: 13,
+    borderBottom: "1px solid var(--line)",
+  },
+  brandHint: {
+    fontWeight: 700,
+    color: "var(--ink)",
   },
 };

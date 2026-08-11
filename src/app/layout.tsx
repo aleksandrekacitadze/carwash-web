@@ -1,30 +1,27 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Fraunces, Outfit } from "next/font/google";
 import MotionPage from "@/components/MotionPage";
 import "./globals.css";
 import "leaflet/dist/leaflet.css";
 
-// ✅ GLOBAL UI COMPONENTS
 import AdminButton from "@/components/AdminButton";
 import SupportChatWidget from "@/components/support/SupportChatWidget";
-
-// ✅ NEW COMPONENTS
 import LiveWeatherBar from "@/components/LiveWeatherBar";
 import SiteFooter from "@/components/SiteFooter";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const outfit = Outfit({
+  variable: "--font-outfit",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
   title: "Tempi",
-  description: "Tempi — On-demand car wash service platform",
+  description: "Tempi — On-demand car wash, wherever you are",
 };
 
 export default function RootLayout({
@@ -35,21 +32,17 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${outfit.variable} ${fraunces.variable} antialiased`}
         style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}
       >
-        {/* ✅ TOP WEATHER BAR */}
         <LiveWeatherBar />
 
-        {/* ✅ MAIN CONTENT WITH ANIMATION */}
         <div style={{ flex: 1 }}>
           <MotionPage>{children}</MotionPage>
         </div>
 
-        {/* ✅ FOOTER */}
         <SiteFooter />
 
-        {/* ✅ FLOATING COMPONENTS */}
         <AdminButton />
         <SupportChatWidget />
       </body>

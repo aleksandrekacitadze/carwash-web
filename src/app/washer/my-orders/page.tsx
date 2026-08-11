@@ -80,9 +80,9 @@ function getStatusTone(status: OrderStatus): React.CSSProperties {
   switch (status) {
     case "DONE":
       return {
-        background: "rgba(60,255,177,0.14)",
-        border: "1px solid rgba(60,255,177,0.25)",
-        color: "#c8ffe7",
+        background: "var(--accent-soft)",
+        border: "1px solid var(--line)",
+        color: "var(--accent-ink)",
       };
     case "CANCELED":
       return {
@@ -98,9 +98,9 @@ function getStatusTone(status: OrderStatus): React.CSSProperties {
       };
     default:
       return {
-        background: "rgba(255,255,255,0.10)",
-        border: "1px solid rgba(255,255,255,0.14)",
-        color: "#fff",
+        background: "var(--surface-2)",
+        border: "1px solid var(--line)",
+        color: "var(--ink)",
       };
   }
 }
@@ -269,9 +269,9 @@ const S: Record<string, React.CSSProperties> = {
   page: {
     minHeight: "100vh",
     padding: "16px",
-    background: "#0b0f19",
-    color: "#fff",
-    fontFamily: "ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial",
+    background: "transparent",
+    color: "var(--ink)",
+    fontFamily: "var(--font-sans)",
   },
 
   header: {
@@ -292,8 +292,8 @@ const S: Record<string, React.CSSProperties> = {
     display: "inline-flex",
     padding: "6px 10px",
     borderRadius: 999,
-    background: "rgba(255,255,255,0.10)",
-    border: "1px solid rgba(255,255,255,0.14)",
+    background: "var(--surface-2)",
+    border: "1px solid var(--line)",
     fontWeight: 900,
     fontSize: 12,
     width: "fit-content",
@@ -309,8 +309,8 @@ const S: Record<string, React.CSSProperties> = {
   },
 
   card: {
-    background: "rgba(255,255,255,0.06)",
-    border: "1px solid rgba(255,255,255,0.12)",
+    background: "var(--surface)",
+    border: "1px solid var(--line)",
     borderRadius: 18,
     padding: 16,
   },
@@ -334,19 +334,19 @@ const S: Record<string, React.CSSProperties> = {
     width: "100%",
     padding: "10px 12px",
     borderRadius: 12,
-    background: "rgba(0,0,0,0.22)",
-    color: "#fff",
-    border: "1px solid rgba(255,255,255,0.14)",
+    background: "#fff",
+    color: "var(--ink)",
+    border: "1px solid var(--line)",
     outline: "none",
   },
 
   btnGhost: {
-    background: "rgba(255,255,255,0.10)",
-    color: "#fff",
+    background: "var(--surface-2)",
+    color: "var(--ink)",
     padding: "10px 12px",
     borderRadius: 14,
     fontWeight: 800,
-    border: "1px solid rgba(255,255,255,0.14)",
+    border: "1px solid var(--line)",
     cursor: "pointer",
   },
   btnPrimary: {
@@ -356,8 +356,8 @@ const S: Record<string, React.CSSProperties> = {
     border: "none",
     cursor: "pointer",
     fontWeight: 950,
-    background: "#3cffb1",
-    color: "#062112",
+    background: "var(--accent)",
+    color: "#fff",
   },
 
   list: {
@@ -368,8 +368,8 @@ const S: Record<string, React.CSSProperties> = {
 
   orderCard: {
     borderRadius: 18,
-    background: "rgba(0,0,0,0.18)",
-    border: "1px solid rgba(255,255,255,0.10)",
+    background: "var(--surface-2)",
+    border: "1px solid var(--line)",
     padding: 14,
   },
   orderTop: {
@@ -406,8 +406,8 @@ const S: Record<string, React.CSSProperties> = {
   },
   infoBox: {
     borderRadius: 14,
-    background: "rgba(255,255,255,0.06)",
-    border: "1px solid rgba(255,255,255,0.10)",
+    background: "var(--surface)",
+    border: "1px solid var(--line)",
     padding: 12,
     minWidth: 0,
   },
@@ -425,8 +425,8 @@ const S: Record<string, React.CSSProperties> = {
   noteBox: {
     marginTop: 12,
     borderRadius: 14,
-    background: "rgba(255,255,255,0.06)",
-    border: "1px solid rgba(255,255,255,0.10)",
+    background: "var(--surface)",
+    border: "1px solid var(--line)",
     padding: 12,
   },
   warningBox: {

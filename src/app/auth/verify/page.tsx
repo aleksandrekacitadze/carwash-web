@@ -71,30 +71,36 @@ function VerifyInner() {
 
   return (
     <main style={styles.main}>
-      <div style={styles.card}>
-        <h1 style={styles.title}>Verify</h1>
+      <div style={styles.panel}>
+        <div style={styles.brand}>Tempi</div>
+        <h1 style={styles.title}>Enter your code</h1>
         <p style={styles.sub}>
           Sent to <b>{phone || "your phone"}</b>
         </p>
 
-        <label style={styles.label}>OTP Code</label>
+        <label style={styles.label}>6-digit code</label>
         <input
           style={styles.input}
           value={code}
           onChange={(e) => setCode(e.target.value)}
           inputMode="numeric"
+          autoComplete="one-time-code"
           placeholder="123456"
         />
 
         {err ? <p style={styles.error}>{err}</p> : null}
 
         <button style={styles.button} onClick={verify} disabled={loading}>
-          {loading ? "Verifying..." : "Verify & continue"}
+          {loading ? "Checking…" : "Verify & continue"}
         </button>
 
-        <p style={{ marginTop: 12, opacity: 0.75, fontSize: 12 }}>
-          After success, JWT is saved in <b>localStorage["token"]</b>.
-        </p>
+        <button
+          style={styles.back}
+          type="button"
+          onClick={() => router.push("/auth")}
+        >
+          Use a different number
+        </button>
       </div>
     </main>
   );
@@ -102,7 +108,7 @@ function VerifyInner() {
 
 export default function VerifyPage() {
   return (
-    <Suspense fallback={<div style={{ padding: 20 }}>Loading...</div>}>
+    <Suspense fallback={<div style={{ padding: 20, color: "var(--ink-soft)" }}>Loading…</div>}>
       <VerifyInner />
     </Suspense>
   );
@@ -113,39 +119,71 @@ const styles: Record<string, React.CSSProperties> = {
     minHeight: "100vh",
     display: "grid",
     placeItems: "center",
-    padding: 16,
-    background: "#0b0f19",
-    color: "#fff",
-  },
-  card: {
-    width: "100%",
-    maxWidth: 440,
-    background: "rgba(255,255,255,0.06)",
-    border: "1px solid rgba(255,255,255,0.12)",
-    borderRadius: 18,
     padding: 20,
   },
-  title: { margin: 0, fontSize: 28, fontWeight: 700 },
-  sub: { marginTop: 8, opacity: 0.85 },
-  label: { display: "block", marginTop: 16, marginBottom: 8, fontWeight: 600 },
+  panel: {
+    width: "100%",
+    maxWidth: 420,
+    background: "var(--surface)",
+    border: "1px solid var(--line)",
+    borderRadius: 24,
+    padding: 28,
+    boxShadow: "var(--shadow)",
+  },
+  brand: {
+    fontFamily: "var(--font-display)",
+    fontSize: 36,
+    fontWeight: 600,
+    letterSpacing: "-0.04em",
+    lineHeight: 1,
+  },
+  title: {
+    margin: "14px 0 0",
+    fontSize: 22,
+    fontWeight: 750,
+    letterSpacing: "-0.02em",
+  },
+  sub: { marginTop: 8, color: "var(--ink-soft)", fontSize: 14 },
+  label: {
+    display: "block",
+    marginTop: 22,
+    marginBottom: 8,
+    fontWeight: 700,
+    fontSize: 13,
+    color: "var(--ink-soft)",
+  },
   input: {
     width: "100%",
-    padding: "12px 14px",
-    borderRadius: 12,
-    border: "1px solid rgba(255,255,255,0.16)",
-    background: "rgba(0,0,0,0.2)",
-    color: "#fff",
-    fontSize: 18,
-    letterSpacing: 2,
+    padding: "14px 16px",
+    borderRadius: 14,
+    border: "1px solid var(--line)",
+    background: "#fff",
+    color: "var(--ink)",
+    fontSize: 22,
+    letterSpacing: "0.28em",
+    textAlign: "center",
   },
   button: {
     width: "100%",
-    marginTop: 16,
-    padding: "12px 14px",
-    borderRadius: 12,
+    marginTop: 18,
+    padding: "15px 16px",
+    borderRadius: 16,
     border: "none",
     cursor: "pointer",
-    fontWeight: 700,
+    fontWeight: 750,
+    fontSize: 16,
+    background: "var(--accent)",
+    color: "#fff",
   },
-  error: { marginTop: 12, color: "#ffb4b4" },
+  back: {
+    width: "100%",
+    marginTop: 12,
+    padding: "12px",
+    border: "none",
+    background: "transparent",
+    color: "var(--ink-soft)",
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+  error: { marginTop: 12, color: "var(--danger)", fontSize: 14 },
 };

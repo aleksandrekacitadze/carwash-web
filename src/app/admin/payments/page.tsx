@@ -33,7 +33,7 @@ function fmtDate(v?: string | null) {
 function statusColor(status?: string) {
   switch (status) {
     case "CAPTURED":
-      return "#3cffb1";
+      return "var(--accent)";
     case "CREATED":
       return "#8fd3ff";
     case "REFUNDED":
@@ -337,9 +337,9 @@ const S: Record<string, React.CSSProperties> = {
   page: {
     minHeight: "100vh",
     padding: 16,
-    background: "#0b0f19",
-    color: "#fff",
-    fontFamily: "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial",
+    background: "transparent",
+    color: "var(--ink)",
+    fontFamily: "var(--font-sans)",
   },
   header: {
     display: "flex",
@@ -353,8 +353,8 @@ const S: Record<string, React.CSSProperties> = {
     display: "inline-flex",
     padding: "6px 10px",
     borderRadius: 999,
-    background: "rgba(255,255,255,0.10)",
-    border: "1px solid rgba(255,255,255,0.14)",
+    background: "var(--surface-2)",
+    border: "1px solid var(--line)",
     fontWeight: 900,
     fontSize: 12,
   },
@@ -362,12 +362,12 @@ const S: Record<string, React.CSSProperties> = {
   sub: { marginTop: 6, opacity: 0.82 },
   headerBtns: { display: "flex", gap: 10, flexWrap: "wrap" },
   btnGhost: {
-    background: "rgba(255,255,255,0.10)",
-    color: "#fff",
+    background: "var(--surface-2)",
+    color: "var(--ink)",
     padding: "10px 12px",
     borderRadius: 14,
     fontWeight: 800,
-    border: "1px solid rgba(255,255,255,0.14)",
+    border: "1px solid var(--line)",
     cursor: "pointer",
     textDecoration: "none",
   },
@@ -379,8 +379,8 @@ const S: Record<string, React.CSSProperties> = {
     marginBottom: 16,
   },
   statCard: {
-    background: "rgba(255,255,255,0.06)",
-    border: "1px solid rgba(255,255,255,0.12)",
+    background: "var(--surface)",
+    border: "1px solid var(--line)",
     borderRadius: 18,
     padding: 14,
   },
@@ -396,8 +396,8 @@ const S: Record<string, React.CSSProperties> = {
   },
 
   filtersCard: {
-    background: "rgba(255,255,255,0.06)",
-    border: "1px solid rgba(255,255,255,0.12)",
+    background: "var(--surface)",
+    border: "1px solid var(--line)",
     borderRadius: 18,
     padding: 14,
     marginBottom: 16,
@@ -417,9 +417,9 @@ const S: Record<string, React.CSSProperties> = {
     width: "100%",
     padding: "12px 12px",
     borderRadius: 14,
-    border: "1px solid rgba(255,255,255,0.14)",
-    background: "rgba(0,0,0,0.22)",
-    color: "#fff",
+    border: "1px solid var(--line)",
+    background: "#fff",
+    color: "var(--ink)",
     outline: "none",
   },
   primaryBtn: {
@@ -429,8 +429,8 @@ const S: Record<string, React.CSSProperties> = {
     border: "none",
     cursor: "pointer",
     fontWeight: 950,
-    background: "#3cffb1",
-    color: "#062112",
+    background: "var(--accent)",
+    color: "#fff",
   },
 
   layout: {
@@ -440,8 +440,8 @@ const S: Record<string, React.CSSProperties> = {
   },
 
   card: {
-    background: "rgba(255,255,255,0.06)",
-    border: "1px solid rgba(255,255,255,0.12)",
+    background: "var(--surface)",
+    border: "1px solid var(--line)",
     borderRadius: 18,
     padding: 14,
   },
@@ -457,8 +457,8 @@ const S: Record<string, React.CSSProperties> = {
   countPill: {
     padding: "6px 10px",
     borderRadius: 999,
-    background: "rgba(255,255,255,0.10)",
-    border: "1px solid rgba(255,255,255,0.14)",
+    background: "var(--surface-2)",
+    border: "1px solid var(--line)",
     fontSize: 12,
     fontWeight: 900,
   },
@@ -475,9 +475,9 @@ const S: Record<string, React.CSSProperties> = {
     textAlign: "left" as const,
     padding: 12,
     borderRadius: 16,
-    background: "rgba(0,0,0,0.18)",
-    border: "1px solid rgba(255,255,255,0.10)",
-    color: "#fff",
+    background: "var(--surface-2)",
+    border: "1px solid var(--line)",
+    color: "var(--ink)",
     cursor: "pointer",
   },
   rowMain: {
@@ -502,8 +502,8 @@ const S: Record<string, React.CSSProperties> = {
   openBtn: {
     padding: "10px 12px",
     borderRadius: 14,
-    background: "rgba(255,255,255,0.10)",
-    border: "1px solid rgba(255,255,255,0.14)",
+    background: "var(--surface-2)",
+    border: "1px solid var(--line)",
     fontWeight: 900,
     whiteSpace: "nowrap",
   },
@@ -526,8 +526,8 @@ const S: Record<string, React.CSSProperties> = {
   detailBox: {
     padding: 12,
     borderRadius: 14,
-    background: "rgba(0,0,0,0.18)",
-    border: "1px solid rgba(255,255,255,0.10)",
+    background: "var(--surface-2)",
+    border: "1px solid var(--line)",
   },
   detailTitle: {
     fontWeight: 950,

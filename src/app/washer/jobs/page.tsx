@@ -660,7 +660,7 @@ export default function WasherJobsPage() {
                 marginTop: 8,
                 color:
                   gpsActive
-                    ? "#3cffb1"
+                    ? "var(--accent)"
                     : "#ff7a7a",
                 fontWeight: 900,
                 fontSize: 13,
@@ -678,11 +678,11 @@ export default function WasherJobsPage() {
                 "50%",
               background:
                 gpsActive
-                  ? "#3cffb1"
+                  ? "var(--accent)"
                   : "#ff7a7a",
               boxShadow:
                 gpsActive
-                  ? "0 0 18px #3cffb1"
+                  ? "0 0 18px var(--accent)"
                   : "0 0 18px #ff7a7a",
             }}
           />
@@ -945,9 +945,8 @@ const S: Record<
   page: {
     minHeight: "100vh",
     padding: 16,
-    background:
-      "#0b0f19",
-    color: "#fff",
+    background: "transparent",
+    color: "var(--ink)",
     fontFamily:
       "ui-sans-serif,system-ui",
   },
@@ -974,10 +973,9 @@ const S: Record<
       "inline-flex",
     padding: "6px 10px",
     borderRadius: 999,
-    background:
-      "rgba(255,255,255,0.10)",
+    background: "var(--surface-2)",
     border:
-      "1px solid rgba(255,255,255,0.14)",
+      "1px solid var(--line)",
     fontWeight: 900,
     fontSize: 12,
   },
@@ -994,10 +992,9 @@ const S: Record<
   },
 
   card: {
-    background:
-      "rgba(255,255,255,0.06)",
+    background: "var(--surface)",
     border:
-      "1px solid rgba(255,255,255,0.12)",
+      "1px solid var(--line)",
     borderRadius: 18,
     padding: 16,
     marginTop: 14,
@@ -1010,14 +1007,13 @@ const S: Record<
   },
 
   btnGhost: {
-    background:
-      "rgba(255,255,255,0.10)",
-    color: "#fff",
+    background: "var(--surface-2)",
+    color: "var(--ink)",
     padding: "10px 12px",
     borderRadius: 14,
     fontWeight: 800,
     border:
-      "1px solid rgba(255,255,255,0.14)",
+      "1px solid var(--line)",
     cursor: "pointer",
   },
 
@@ -1027,9 +1023,8 @@ const S: Record<
     border: "none",
     cursor: "pointer",
     fontWeight: 950,
-    background:
-      "#3cffb1",
-    color: "#062112",
+    background: "var(--accent)",
+    color: "#fff",
     whiteSpace:
       "nowrap",
     width: "100%",
@@ -1055,10 +1050,9 @@ const S: Record<
 
   noticeOk: {
     background:
-      "rgba(60,255,177,0.12)",
-    border:
-      "1px solid rgba(60,255,177,0.24)",
-    color: "#c8ffe7",
+      "var(--accent-soft)",
+    border: "1px solid var(--line)",
+    color: "var(--accent-ink)",
   },
 
   noticeWarn: {
@@ -1082,10 +1076,9 @@ const S: Record<
     gap: 12,
     padding: 12,
     borderRadius: 16,
-    background:
-      "rgba(0,0,0,0.18)",
+    background: "var(--surface-2)",
     border:
-      "1px solid rgba(255,255,255,0.10)",
+      "1px solid var(--line)",
     flexWrap: "wrap",
   },
 
@@ -1095,8 +1088,7 @@ const S: Record<
     borderRadius: 16,
     display: "grid",
     placeItems: "center",
-    background:
-      "rgba(255,255,255,0.10)",
+    background: "var(--surface-2)",
     fontSize: 20,
   },
 
@@ -1123,10 +1115,9 @@ const S: Record<
     padding: "6px 10px",
     borderRadius: 999,
     background:
-      "rgba(60,255,177,0.12)",
-    border:
-      "1px solid rgba(60,255,177,0.24)",
-    color: "#c8ffe7",
+      "var(--accent-soft)",
+    border: "1px solid var(--line)",
+    color: "var(--accent-ink)",
     fontWeight: 900,
     fontSize: 12,
   },

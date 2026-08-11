@@ -309,11 +309,10 @@ export default function WasherCancelOrderButton({
         style={{
           padding: "10px 12px",
           borderRadius: 14,
-          background:
-            "rgba(255,255,255,0.06)",
+          background: "var(--surface)",
           border:
-            "1px solid rgba(255,255,255,0.10)",
-          color: "#fff",
+            "1px solid var(--line)",
+          color: "var(--ink)",
           fontSize: 13,
           fontWeight: 700,
         }}
@@ -337,7 +336,7 @@ export default function WasherCancelOrderButton({
             border: "none",
             background:
               "#ff6363",
-            color: "#fff",
+            color: "var(--ink)",
             fontWeight: 900,
             fontSize: 15,
             cursor: loading

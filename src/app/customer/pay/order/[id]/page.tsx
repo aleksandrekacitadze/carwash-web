@@ -597,8 +597,8 @@ const S: Record<
   page: {
     minHeight: "100vh",
     padding: 20,
-    background: "#0b0f19",
-    color: "#fff",
+    background: "transparent",
+    color: "var(--ink)",
     fontFamily: "system-ui",
   },
 
@@ -623,9 +623,8 @@ const S: Record<
   },
 
   btn: {
-    background:
-      "rgba(255,255,255,0.10)",
-    color: "#fff",
+    background: "var(--surface-2)",
+    color: "var(--ink)",
     padding: "10px 12px",
     borderRadius: 14,
     fontWeight: 800,
@@ -635,10 +634,9 @@ const S: Record<
 
   card: {
     marginTop: 14,
-    background:
-      "rgba(255,255,255,0.06)",
+    background: "var(--surface)",
     border:
-      "1px solid rgba(255,255,255,0.12)",
+      "1px solid var(--line)",
     borderRadius: 18,
     padding: 16,
     maxWidth: 560,
@@ -649,10 +647,9 @@ const S: Record<
     gap: 8,
     padding: 12,
     borderRadius: 14,
-    background:
-      "rgba(0,0,0,0.22)",
+    background: "#fff",
     border:
-      "1px solid rgba(255,255,255,0.10)",
+      "1px solid var(--line)",
   },
 
   waitBox: {
@@ -671,9 +668,8 @@ const S: Record<
     padding: 12,
     borderRadius: 14,
     background:
-      "rgba(60,255,177,0.14)",
-    border:
-      "1px solid rgba(60,255,177,0.25)",
+      "var(--accent-soft)",
+    border: "1px solid var(--line)",
     fontWeight: 900,
   },
 
@@ -689,10 +685,9 @@ const S: Record<
     padding: "12px 12px",
     borderRadius: 14,
     border:
-      "1px solid rgba(255,255,255,0.14)",
-    background:
-      "rgba(0,0,0,0.22)",
-    color: "#fff",
+      "1px solid var(--line)",
+    background: "#fff",
+    color: "var(--ink)",
     outline: "none",
   },
 
@@ -702,8 +697,8 @@ const S: Record<
     padding: "14px 16px",
     borderRadius: 16,
     border: "none",
-    background: "#3cffb1",
-    color: "#062112",
+    background: "var(--accent)",
+    color: "#fff",
     fontWeight: 950,
     fontSize: 16,
   },
@@ -739,7 +734,7 @@ const S: Record<
 
     background: "#16a34a",
 
-    color: "#fff",
+    color: "var(--ink)",
 
     fontWeight: 900,
 

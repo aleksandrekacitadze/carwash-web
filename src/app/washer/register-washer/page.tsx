@@ -680,11 +680,11 @@ export default function RegisterWasherPage() {
                 </div>
 
                 {missingFiles.length ? (
-                  <div style={{ marginTop: 10, color: "#ffb4b4", fontSize: 12 }}>
+                  <div style={{ marginTop: 10, color: "var(--danger)", fontSize: 12 }}>
                     Missing: <b>{missingFiles.join(", ")}</b>
                   </div>
                 ) : (
-                  <div style={{ marginTop: 10, color: "#c8ffe7", fontSize: 12 }}>
+                  <div style={{ marginTop: 10, color: "var(--accent-ink)", fontSize: 12 }}>
                     All required documents added ✅
                   </div>
                 )}
@@ -782,9 +782,9 @@ const S: Record<string, React.CSSProperties> = {
   page: {
     minHeight: "100vh",
     padding: 16,
-    background: "#0b0f19",
-    color: "#fff",
-    fontFamily: "ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial",
+    background: "transparent",
+    color: "var(--ink)",
+    fontFamily: "var(--font-sans)",
   },
   header: {
     display: "flex",
@@ -803,8 +803,8 @@ const S: Record<string, React.CSSProperties> = {
     display: "inline-flex",
     padding: "6px 10px",
     borderRadius: 999,
-    background: "rgba(255,255,255,0.10)",
-    border: "1px solid rgba(255,255,255,0.14)",
+    background: "var(--surface-2)",
+    border: "1px solid var(--line)",
     fontWeight: 900,
     fontSize: 12,
     width: "fit-content",
@@ -815,8 +815,8 @@ const S: Record<string, React.CSSProperties> = {
   grid: { display: "grid", gridTemplateColumns: "1fr", gap: 12 },
 
   card: {
-    background: "rgba(255,255,255,0.06)",
-    border: "1px solid rgba(255,255,255,0.12)",
+    background: "var(--surface)",
+    border: "1px solid var(--line)",
     borderRadius: 18,
     padding: 14,
   },
@@ -825,13 +825,13 @@ const S: Record<string, React.CSSProperties> = {
   banner: {
     borderRadius: 18,
     padding: 14,
-    border: "1px solid rgba(255,255,255,0.14)",
+    border: "1px solid var(--line)",
     marginBottom: 12,
   },
-  bannerPending: { background: "rgba(255,255,255,0.08)" },
-  bannerOk: { background: "rgba(60,255,177,0.12)" },
+  bannerPending: { background: "var(--surface-2)" },
+  bannerOk: { background: "var(--accent-soft)" },
   bannerBad: { background: "rgba(255,77,77,0.10)" },
-  bannerNeutral: { background: "rgba(0,0,0,0.18)" },
+  bannerNeutral: { background: "var(--surface-2)" },
   bannerActions: {
     marginTop: 12,
     display: "flex",
@@ -840,12 +840,12 @@ const S: Record<string, React.CSSProperties> = {
   },
 
   btnGhost: {
-    background: "rgba(255,255,255,0.10)",
-    color: "#fff",
+    background: "var(--surface-2)",
+    color: "var(--ink)",
     padding: "10px 12px",
     borderRadius: 14,
     fontWeight: 800,
-    border: "1px solid rgba(255,255,255,0.14)",
+    border: "1px solid var(--line)",
     cursor: "pointer",
   },
   btnSoft: {
@@ -853,9 +853,9 @@ const S: Record<string, React.CSSProperties> = {
     marginTop: 10,
     padding: "12px 12px",
     borderRadius: 14,
-    border: "1px solid rgba(255,255,255,0.18)",
-    background: "rgba(255,255,255,0.08)",
-    color: "#fff",
+    border: "1px solid var(--line)",
+    background: "var(--surface-2)",
+    color: "var(--ink)",
     cursor: "pointer",
     fontWeight: 900,
   },
@@ -867,8 +867,8 @@ const S: Record<string, React.CSSProperties> = {
     border: "none",
     cursor: "pointer",
     fontWeight: 950,
-    background: "#3cffb1",
-    color: "#062112",
+    background: "var(--accent)",
+    color: "#fff",
   },
   btnPrimaryHalf: {
     flex: "1 1 180px",
@@ -877,16 +877,16 @@ const S: Record<string, React.CSSProperties> = {
     border: "none",
     cursor: "pointer",
     fontWeight: 950,
-    background: "#3cffb1",
-    color: "#062112",
+    background: "var(--accent)",
+    color: "#fff",
   },
   btnSoftHalf: {
     flex: "1 1 180px",
     padding: "12px 12px",
     borderRadius: 14,
-    border: "1px solid rgba(255,255,255,0.18)",
-    background: "rgba(255,255,255,0.08)",
-    color: "#fff",
+    border: "1px solid var(--line)",
+    background: "var(--surface-2)",
+    color: "var(--ink)",
     cursor: "pointer",
     fontWeight: 900,
   },
@@ -896,9 +896,9 @@ const S: Record<string, React.CSSProperties> = {
     width: "100%",
     padding: "12px 12px",
     borderRadius: 14,
-    border: "1px solid rgba(255,255,255,0.14)",
-    background: "rgba(0,0,0,0.22)",
-    color: "#fff",
+    border: "1px solid var(--line)",
+    background: "#fff",
+    color: "var(--ink)",
     outline: "none",
   },
   row2: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 },
@@ -910,8 +910,8 @@ const S: Record<string, React.CSSProperties> = {
     marginTop: 6,
     padding: "10px 12px",
     borderRadius: 14,
-    border: "1px solid rgba(255,255,255,0.12)",
-    background: "rgba(0,0,0,0.18)",
+    border: "1px solid var(--line)",
+    background: "var(--surface-2)",
   },
 
   reqList: { display: "grid", gap: 10, marginTop: 12 },
@@ -920,8 +920,8 @@ const S: Record<string, React.CSSProperties> = {
     gap: 10,
     padding: "10px 12px",
     borderRadius: 14,
-    border: "1px solid rgba(255,255,255,0.10)",
-    background: "rgba(0,0,0,0.18)",
+    border: "1px solid var(--line)",
+    background: "var(--surface-2)",
   },
   reqIcon: {
     width: 30,
@@ -929,8 +929,8 @@ const S: Record<string, React.CSSProperties> = {
     borderRadius: 12,
     display: "grid",
     placeItems: "center",
-    background: "rgba(255,255,255,0.10)",
-    border: "1px solid rgba(255,255,255,0.12)",
+    background: "var(--surface-2)",
+    border: "1px solid var(--line)",
     fontWeight: 950,
     flex: "0 0 30px",
   },
@@ -939,8 +939,8 @@ const S: Record<string, React.CSSProperties> = {
     marginTop: 6,
     padding: 12,
     borderRadius: 16,
-    border: "1px solid rgba(255,255,255,0.10)",
-    background: "rgba(0,0,0,0.18)",
+    border: "1px solid var(--line)",
+    background: "var(--surface-2)",
   },
   docsGrid: {
     marginTop: 8,
@@ -950,7 +950,7 @@ const S: Record<string, React.CSSProperties> = {
   },
   docCard: {
     borderRadius: 16,
-    border: "1px solid rgba(255,255,255,0.10)",
+    border: "1px solid var(--line)",
     background: "rgba(255,255,255,0.05)",
     padding: 12,
   },
@@ -959,13 +959,13 @@ const S: Record<string, React.CSSProperties> = {
     height: 220,
     objectFit: "cover",
     borderRadius: 14,
-    border: "1px solid rgba(255,255,255,0.12)",
+    border: "1px solid var(--line)",
     marginTop: 10,
   },
   previewEmpty: {
     height: 220,
     borderRadius: 14,
-    border: "1px dashed rgba(255,255,255,0.22)",
+    border: "1px dashed var(--line)",
     background: "rgba(0,0,0,0.12)",
     display: "grid",
     placeItems: "center",
@@ -976,9 +976,9 @@ const S: Record<string, React.CSSProperties> = {
   okPill: {
     padding: "6px 10px",
     borderRadius: 999,
-    background: "rgba(60,255,177,0.15)",
-    border: "1px solid rgba(60,255,177,0.25)",
-    color: "#c8ffe7",
+    background: "var(--accent-soft)",
+    border: "1px solid var(--line)",
+    color: "var(--accent-ink)",
     fontWeight: 900,
     height: "fit-content",
     whiteSpace: "nowrap",
@@ -999,18 +999,18 @@ const S: Record<string, React.CSSProperties> = {
     justifyContent: "center",
     padding: "10px 12px",
     borderRadius: 14,
-    border: "1px solid rgba(255,255,255,0.18)",
-    background: "rgba(255,255,255,0.12)",
-    color: "#fff",
+    border: "1px solid var(--line)",
+    background: "var(--surface-2)",
+    color: "var(--ink)",
     cursor: "pointer",
     fontWeight: 900,
   },
   fileBtnSoft: {
     padding: "10px 12px",
     borderRadius: 14,
-    border: "1px solid rgba(255,255,255,0.18)",
-    background: "rgba(0,0,0,0.18)",
-    color: "#fff",
+    border: "1px solid var(--line)",
+    background: "var(--surface-2)",
+    color: "var(--ink)",
     cursor: "pointer",
     fontWeight: 900,
     opacity: 0.95,
@@ -1024,8 +1024,8 @@ const S: Record<string, React.CSSProperties> = {
   },
   infoBox: {
     borderRadius: 14,
-    border: "1px solid rgba(255,255,255,0.10)",
-    background: "rgba(0,0,0,0.18)",
+    border: "1px solid var(--line)",
+    background: "var(--surface-2)",
     padding: 12,
   },
   infoValue: {
@@ -1043,9 +1043,9 @@ const S: Record<string, React.CSSProperties> = {
     textAlign: "left" as const,
     padding: 14,
     borderRadius: 16,
-    border: "1px solid rgba(255,255,255,0.12)",
-    background: "rgba(255,255,255,0.08)",
-    color: "#fff",
+    border: "1px solid var(--line)",
+    background: "var(--surface-2)",
+    color: "var(--ink)",
     cursor: "pointer",
   },
   navCardDisabled: {
@@ -1066,8 +1066,8 @@ const S: Record<string, React.CSSProperties> = {
   noteBox: {
     marginTop: 12,
     borderRadius: 14,
-    background: "rgba(255,255,255,0.06)",
-    border: "1px solid rgba(255,255,255,0.10)",
+    background: "var(--surface)",
+    border: "1px solid var(--line)",
     padding: 12,
   },
   warningBox: {

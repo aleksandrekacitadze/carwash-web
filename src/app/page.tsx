@@ -27,16 +27,31 @@ export default function Home() {
 
   if (!ready) {
     return (
-      <main style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
-        <div>Loading…</div>
+      <main
+        style={{
+          minHeight: "100vh",
+          display: "grid",
+          placeItems: "center",
+          color: "var(--ink-soft)",
+          fontFamily: "var(--font-sans)",
+        }}
+      >
+        <div style={{ fontFamily: "var(--font-display)", fontSize: 28 }}>Tempi</div>
       </main>
     );
   }
 
   if (!hasToken) {
     return (
-      <main style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
-        <div>Redirecting…</div>
+      <main
+        style={{
+          minHeight: "100vh",
+          display: "grid",
+          placeItems: "center",
+          color: "var(--ink-soft)",
+        }}
+      >
+        <div>Taking you to sign in…</div>
       </main>
     );
   }

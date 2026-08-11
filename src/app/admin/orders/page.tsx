@@ -70,7 +70,7 @@ function statusColor(status?: string) {
       return "#c59bff";
 
     case "DONE":
-      return "#3cffb1";
+      return "var(--accent)";
 
     case "CANCEL_REQUESTED":
       return "#ffb366";
@@ -934,8 +934,8 @@ const S: Record<
   page: {
     minHeight: "100vh",
     padding: 16,
-    background: "#0b0f19",
-    color: "#fff",
+    background: "transparent",
+    color: "var(--ink)",
     fontFamily:
       "ui-sans-serif,system-ui",
   },
@@ -954,10 +954,9 @@ const S: Record<
     display: "inline-flex",
     padding: "6px 10px",
     borderRadius: 999,
-    background:
-      "rgba(255,255,255,0.10)",
+    background: "var(--surface-2)",
     border:
-      "1px solid rgba(255,255,255,0.14)",
+      "1px solid var(--line)",
     fontWeight: 900,
     fontSize: 12,
   },
@@ -980,14 +979,13 @@ const S: Record<
   },
 
   btnGhost: {
-    background:
-      "rgba(255,255,255,0.10)",
-    color: "#fff",
+    background: "var(--surface-2)",
+    color: "var(--ink)",
     padding: "10px 12px",
     borderRadius: 14,
     fontWeight: 800,
     border:
-      "1px solid rgba(255,255,255,0.14)",
+      "1px solid var(--line)",
     cursor: "pointer",
     textDecoration: "none",
   },
@@ -1009,14 +1007,13 @@ const S: Record<
     cursor: "pointer",
     fontWeight: 900,
     background: "#ff4d6d",
-    color: "#fff",
+    color: "var(--ink)",
   },
 
   filtersCard: {
-    background:
-      "rgba(255,255,255,0.06)",
+    background: "var(--surface)",
     border:
-      "1px solid rgba(255,255,255,0.12)",
+      "1px solid var(--line)",
     borderRadius: 18,
     padding: 14,
     marginBottom: 16,
@@ -1040,10 +1037,9 @@ const S: Record<
     padding: "12px",
     borderRadius: 14,
     border:
-      "1px solid rgba(255,255,255,0.14)",
-    background:
-      "rgba(0,0,0,0.22)",
-    color: "#fff",
+      "1px solid var(--line)",
+    background: "#fff",
+    color: "var(--ink)",
   },
 
   primaryBtn: {
@@ -1052,8 +1048,8 @@ const S: Record<
     borderRadius: 14,
     border: "none",
     fontWeight: 950,
-    background: "#3cffb1",
-    color: "#062112",
+    background: "var(--accent)",
+    color: "#fff",
     cursor: "pointer",
   },
 
@@ -1065,10 +1061,9 @@ const S: Record<
   },
 
   card: {
-    background:
-      "rgba(255,255,255,0.06)",
+    background: "var(--surface)",
     border:
-      "1px solid rgba(255,255,255,0.12)",
+      "1px solid var(--line)",
     borderRadius: 18,
     padding: 14,
   },
@@ -1089,8 +1084,7 @@ const S: Record<
   countPill: {
     padding: "6px 10px",
     borderRadius: 999,
-    background:
-      "rgba(255,255,255,0.10)",
+    background: "var(--surface-2)",
     fontWeight: 900,
   },
 
@@ -1107,10 +1101,9 @@ const S: Record<
     flexWrap: "wrap",
     padding: 12,
     borderRadius: 16,
-    background:
-      "rgba(0,0,0,0.18)",
+    background: "var(--surface-2)",
     border:
-      "1px solid rgba(255,255,255,0.10)",
+      "1px solid var(--line)",
   },
 
   rowMain: {
@@ -1152,10 +1145,9 @@ const S: Record<
     padding: "10px 12px",
     borderRadius: 14,
     border:
-      "1px solid rgba(255,255,255,0.18)",
-    background:
-      "rgba(255,255,255,0.10)",
-    color: "#fff",
+      "1px solid var(--line)",
+    background: "var(--surface-2)",
+    color: "var(--ink)",
     fontWeight: 900,
     cursor: "pointer",
   },
@@ -1164,8 +1156,8 @@ const S: Record<
     padding: "10px 12px",
     borderRadius: 14,
     border: "none",
-    background: "#3cffb1",
-    color: "#062112",
+    background: "var(--accent)",
+    color: "#fff",
     fontWeight: 900,
     cursor: "pointer",
   },
@@ -1175,7 +1167,7 @@ const S: Record<
     borderRadius: 14,
     border: "none",
     background: "#ff6363",
-    color: "#fff",
+    color: "var(--ink)",
     fontWeight: 900,
     cursor: "pointer",
   },
@@ -1207,8 +1199,7 @@ const S: Record<
   detailBox: {
     padding: 12,
     borderRadius: 14,
-    background:
-      "rgba(0,0,0,0.18)",
+    background: "var(--surface-2)",
   },
 
   detailTitle: {

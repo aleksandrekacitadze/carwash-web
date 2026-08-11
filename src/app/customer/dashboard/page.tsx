@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { useRouter } from "next/navigation";
+import { isPreviewSession } from "@/lib/preview";
 
 type LocationMode = "GPS" | "MANUAL";
 
@@ -222,6 +223,16 @@ const [showNoWasherDialog, setShowNoWasherDialog] =
   const [creditWashLoading, setCreditWashLoading] = useState(false);
   const [cashWashLoading, setCashWashLoading] = useState(false);
 
+  const [editCarOpen, setEditCarOpen] = useState(false);
+  const [showAddressExtras, setShowAddressExtras] = useState(false);
+  const [payMethod, setPayMethod] = useState<"DIRECT" | "CREDIT" | "CASH">("DIRECT");
+
+  const anyWashLoading = washLoading || creditWashLoading || cashWashLoading;
+  const hasLocation =
+    (locMode === "GPS" && !!gpsCoords) ||
+    (locMode === "MANUAL" && manualSaved && !!manualCoords);
+  const canBook = !!activeCar && !!selectedService && hasLocation && !anyWashLoading;
+
   const currentCoords = useMemo(() => {
     if (locMode === "GPS") return gpsCoords;
     return manualCoords;
@@ -311,6 +322,20 @@ async function loadPriceQuote() {
     setPriceQuoteLoading(true);
     setPriceQuoteErr("");
 
+    if (isPreviewSession()) {
+      setPriceQuote({
+        basePriceGel: Number(selectedService.priceGel),
+        distanceKm: 2.4,
+        distancePriceGel: 5,
+        totalPriceGel: Number(selectedService.priceGel) + 5,
+        nearestWasherId: 1,
+        source: "AVAILABLE_WASHER",
+        hasNearbyOnlineWasher: true,
+      });
+      setShowNoWasherDialog(false);
+      return;
+    }
+
     const { data } = await api.post<PriceQuote>(
       "/orders/price-quote",
       {
@@ -365,6 +390,26 @@ async function loadPriceQuote() {
     setCarsErr("");
     setCarsLoading(true);
     try {
+      if (isPreviewSession()) {
+        const demoCars: Car[] = [
+          {
+            id: 1,
+            ownerId: 0,
+            brand: "Toyota",
+            model: "Prius",
+            color: "Silver",
+            plateNumber: "TB-123",
+            notes: null,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            nickname: "Toyota Prius",
+          },
+        ];
+        setCars(demoCars);
+        setActiveCarId(1);
+        return;
+      }
+
       const { data } = await api.get<Car[]>("/cars/me");
       const withNick = (data || []).map((c) => ({
         ...c,
@@ -385,6 +430,38 @@ async function loadPriceQuote() {
     setServicesErr("");
     setServicesLoading(true);
     try {
+      if (isPreviewSession()) {
+        const demoServices: Service[] = [
+          {
+            id: 1,
+            name: "Express exterior",
+            description: "Quick rinse, foam, and dry — great for weekly upkeep.",
+            priceGel: 25,
+            durationMin: 25,
+            isActive: true,
+          },
+          {
+            id: 2,
+            name: "Full clean",
+            description: "Exterior + vacuum interior. Our most booked wash.",
+            priceGel: 45,
+            durationMin: 45,
+            isActive: true,
+          },
+          {
+            id: 3,
+            name: "Detail polish",
+            description: "Deep clean with polish for a showroom finish.",
+            priceGel: 80,
+            durationMin: 90,
+            isActive: true,
+          },
+        ];
+        setServices(demoServices);
+        setServiceId(2);
+        return;
+      }
+
       const { data } = await api.get<Service[]>("/services");
       setServices(data || []);
       if (!serviceId && data?.length) setServiceId(data[0].id);
@@ -581,7 +658,11 @@ async function loadPriceQuote() {
         manualGeoName: geo.displayName || "",
       });
 
-      await api.post("/users/me/location", coords);
+      try {
+        await api.post("/users/me/location", coords);
+      } catch {
+        // Local location is enough for booking / preview
+      }
     } catch (e: any) {
       setManualError(e?.message || "Failed to geocode/save location.");
       setManualSaved(false);
@@ -680,64 +761,165 @@ async function loadPriceQuote() {
     }
   }
 
+  async function onBookWash() {
+    if (isPreviewSession()) {
+      if (!canBook) return;
+      setWashLoading(true);
+      setTimeout(() => {
+        setWashLoading(false);
+        router.push("/customer/booked");
+      }, 450);
+      return;
+    }
+    if (payMethod === "CREDIT") return onWashNowCredits();
+    if (payMethod === "CASH") return onWashNowCash();
+    return onWashNowDirect();
+  }
+
+  const bookLabel = (() => {
+    if (washLoading) return "Opening payment…";
+    if (creditWashLoading) return "Using credits…";
+    if (cashWashLoading) return "Booking cash wash…";
+    if (payMethod === "CREDIT") return "Book with credits";
+    if (payMethod === "CASH") return "Book · pay with cash";
+    return `Book wash · ${finalWashPrice || "—"} GEL`;
+  })();
+
   return (
     <div style={S.page}>
-      <header style={S.header}>
-        <div>
-          <h1 style={S.title}>Customer Dashboard</h1>
-          <div style={S.subtitle}>Book a wash in seconds.</div>
-        </div>
-
-        <div style={S.headerActions}>
-          <a style={S.secondaryBtn} href="/subscriptions">
-            Buy Subscriptions
-          </a>
-          <a style={S.secondaryBtn} href="/washer/register-washer">
-            Register as Washer
-          </a>
-        </div>
-      </header>
-
-      <div style={S.grid}>
-        <section style={S.card}>
-          <div style={S.cardHeaderRow}>
-            <h2 style={S.cardTitle}>Your Car</h2>
-            <button style={S.linkBtn as any} onClick={addCar}>
-              + Add car
-            </button>
-          </div>
-
-          {carsLoading ? <div style={S.muted}>Loading cars…</div> : null}
-          {carsErr ? <div style={S.errorText}>{carsErr}</div> : null}
-
-          <div style={S.carTabs}>
-            {cars.map((c) => (
+      {showNoWasherDialog && (
+        <div style={S.modalOverlay}>
+          <div style={S.modalCard}>
+            <div style={S.modalIcon}>○</div>
+            <h2 style={S.modalTitle}>No washer nearby right now</h2>
+            <p style={S.modalText}>
+              We can still take your booking and notify you as soon as someone is free nearby.
+            </p>
+            <div style={S.modalActions}>
               <button
-                key={c.id}
-                onClick={() => setActiveCarId(c.id)}
-                style={{
-                  ...S.carTab,
-                  ...(c.id === activeCarId ? S.carTabActive : {}),
+                style={S.modalSecondaryBtn}
+                onClick={() => {
+                  setNotifyWhenWasherAvailable(false);
+                  setShowNoWasherDialog(false);
                 }}
               >
-                {c.nickname || prettyCarName(c)}
+                Continue anyway
               </button>
-            ))}
+              <button
+                style={S.modalPrimaryBtn}
+                onClick={() => {
+                  setNotifyWhenWasherAvailable(true);
+                  setShowNoWasherDialog(false);
+                }}
+              >
+                Notify me
+              </button>
+            </div>
           </div>
+        </div>
+      )}
 
-          {!activeCar ? (
-            <div style={S.muted}>No car selected. Add a car to continue.</div>
-          ) : (
-            <div style={S.carCard}>
-              <div style={S.carImageBox}>
-                {activeCar.imageDataUrl ? (
-                  <img src={activeCar.imageDataUrl} alt="Car" style={S.carImage} />
-                ) : (
-                  <div style={S.carImagePlaceholder}>
-                    <div style={S.carEmoji}>🚗</div>
-                    <div style={S.muted}>Upload your car image</div>
+      <header style={S.header}>
+        <div>
+          <div style={S.brand}>Tempi</div>
+          <p style={S.tagline}>A wash that comes to you.</p>
+        </div>
+        <nav style={S.nav}>
+          <a style={S.navLink} href="/orders/my">
+            My orders
+          </a>
+          <a style={S.navLink} href="/subscriptions">
+            Plans
+          </a>
+          <a style={S.navLink} href="/customer/credits">
+            Credits
+          </a>
+        </nav>
+      </header>
+
+      <div style={S.shell}>
+        <div style={S.flow}>
+          {/* Step 1 — Car */}
+          <section style={S.step}>
+            <div style={S.stepHead}>
+              <span style={S.stepNum}>1</span>
+              <div>
+                <h2 style={S.stepTitle}>Your car</h2>
+                <p style={S.stepHint}>Pick the vehicle you want washed.</p>
+              </div>
+              <button style={S.textBtn} onClick={addCar} type="button">
+                + Add
+              </button>
+            </div>
+
+            {carsLoading ? <div style={S.muted}>Loading your cars…</div> : null}
+            {carsErr ? <div style={S.errorText}>{carsErr}</div> : null}
+
+            {!cars.length && !carsLoading ? (
+              <button style={S.emptyCta} onClick={addCar} type="button">
+                Add your first car
+              </button>
+            ) : (
+              <div style={S.carList}>
+                {cars.map((c) => {
+                  const active = c.id === activeCarId;
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setActiveCarId(c.id)}
+                      style={{
+                        ...S.carChip,
+                        ...(active ? S.carChipActive : {}),
+                      }}
+                    >
+                      <span style={S.carChipName}>{c.nickname || prettyCarName(c)}</span>
+                      {c.plateNumber ? (
+                        <span style={S.carChipMeta}>{c.plateNumber}</span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {activeCar ? (
+              <div style={S.softPanel}>
+                <div style={S.softPanelRow}>
+                  <div style={S.carPreview}>
+                    {activeCar.imageDataUrl ? (
+                      <img src={activeCar.imageDataUrl} alt="" style={S.carThumb} />
+                    ) : (
+                      <div style={S.carThumbEmpty}>No photo</div>
+                    )}
                   </div>
-                )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={S.carSummaryName}>{prettyCarName(activeCar)}</div>
+                    <div style={S.mutedSmall}>
+                      {activeCar.color ? `${activeCar.color} · ` : ""}
+                      Tap edit only if details need a tweak.
+                    </div>
+                    <div style={S.inlineActions}>
+                      <button style={S.ghostBtn} type="button" onClick={pickCarImage}>
+                        Photo
+                      </button>
+                      <button
+                        style={S.ghostBtn}
+                        type="button"
+                        onClick={() => setEditCarOpen((v) => !v)}
+                      >
+                        {editCarOpen ? "Hide details" : "Edit details"}
+                      </button>
+                      <button
+                        style={S.dangerGhost}
+                        type="button"
+                        onClick={() => deleteCar(activeCar.id)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                </div>
 
                 <input
                   ref={fileRef}
@@ -747,411 +929,414 @@ async function loadPriceQuote() {
                   onChange={onCarImageSelected}
                 />
 
-                <button style={S.smallBtn} onClick={pickCarImage}>
-                  Upload Image
-                </button>
-
-                <button
-                  style={{ ...S.smallBtn, marginTop: 10 }}
-                  onClick={() => deleteCar(activeCar.id)}
-                >
-                  Delete Car
-                </button>
-              </div>
-
-              <div style={S.carMeta}>
-                <div style={S.row2}>
-                  <div>
-                    <div style={S.label}>Brand</div>
-                    <input
-                      style={S.input}
-                      value={activeCar.brand || ""}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setCars((prev) =>
-                          prev.map((c) => (c.id === activeCar.id ? { ...c, brand: v } : c)),
-                        );
-                      }}
-                      onBlur={() => updateCarPatch(activeCar.id, { brand: activeCar.brand })}
-                      placeholder="Toyota"
-                    />
-                  </div>
-                  <div>
-                    <div style={S.label}>Model</div>
-                    <input
-                      style={S.input}
-                      value={activeCar.model || ""}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setCars((prev) =>
-                          prev.map((c) => (c.id === activeCar.id ? { ...c, model: v } : c)),
-                        );
-                      }}
-                      onBlur={() => updateCarPatch(activeCar.id, { model: activeCar.model })}
-                      placeholder="Prius"
-                    />
-                  </div>
-                </div>
-
-                <div style={S.row2}>
-                  <div>
-                    <div style={S.label}>Plate (optional)</div>
-                    <input
-                      style={S.input}
-                      value={activeCar.plateNumber || ""}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setCars((prev) =>
-                          prev.map((c) =>
-                            c.id === activeCar.id ? { ...c, plateNumber: v } : c,
-                          ),
-                        );
-                      }}
-                      onBlur={() =>
-                        updateCarPatch(activeCar.id, {
-                          plateNumber: activeCar.plateNumber || null,
-                        })
-                      }
-                      placeholder="ABC-123"
-                    />
-                  </div>
-                  <div>
-                    <div style={S.label}>Color (optional)</div>
-                    <input
-                      style={S.input}
-                      value={activeCar.color || ""}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setCars((prev) =>
-                          prev.map((c) => (c.id === activeCar.id ? { ...c, color: v } : c)),
-                        );
-                      }}
-                      onBlur={() =>
-                        updateCarPatch(activeCar.id, { color: activeCar.color || null })
-                      }
-                      placeholder="Black"
-                    />
-                  </div>
-                </div>
-{showNoWasherDialog && (
-  <div style={S.modalOverlay}>
-    <div style={S.modalCard}>
-      <div style={S.modalIcon}>🧽</div>
-
-      <h2 style={S.modalTitle}>
-        No washer nearby right now
-      </h2>
-
-      <p style={S.modalText}>
-        We can still save your order and call/notify you when a washer becomes available near you.
-      </p>
-
-      <div style={S.modalActions}>
-        <button
-          style={S.modalSecondaryBtn}
-          onClick={() => {
-            setNotifyWhenWasherAvailable(false);
-            setShowNoWasherDialog(false);
-          }}
-        >
-          Continue anyway
-        </button>
-
-        <button
-          style={S.modalPrimaryBtn}
-          onClick={() => {
-            setNotifyWhenWasherAvailable(true);
-            setShowNoWasherDialog(false);
-          }}
-        >
-          Notify me
-        </button>
-      </div>
-    </div>
-  </div>
-)}
-                <div style={S.pricesBox}>
-                  <div style={S.pricesTitle}>Service</div>
-
-                  {servicesLoading ? <div style={S.muted}>Loading services…</div> : null}
-                  {servicesErr ? <div style={S.errorText}>{servicesErr}</div> : null}
-
-                  {services.length ? (
-                    <>
-                      <div style={S.label}>Choose service</div>
-                      <select
-                        style={S.input}
-                        value={serviceId ?? ""}
-                        onChange={(e) => setServiceId(Number(e.target.value))}
-                      >
-                        {services.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.name} — {s.priceGel} GEL • {s.durationMin} min
-                          </option>
-                        ))}
-                      </select>
-
-                      {selectedService?.description ? (
-                        <div style={{ ...S.mutedSmall, marginTop: 8 }}>
-                          {selectedService.description}
-                        </div>
-                      ) : null}
-
-                      <div style={{ ...S.totalPrice, marginTop: 12 }}>
-                        Base: <b>{selectedService?.priceGel ?? "-"} GEL</b>
-                        <br />
-                        Distance:{" "}
-                        <b>
-                          {priceQuoteLoading
-                            ? "Calculating..."
-                            : priceQuote?.distancePriceGel != null
-                              ? `${priceQuote.distancePriceGel} GEL`
-                              : "0 GEL"}
-                        </b>
-                        <br />
-                        Total: <b>{finalWashPrice || "-"} GEL</b>
+                {editCarOpen ? (
+                  <div style={{ marginTop: 14 }}>
+                    <div style={S.row2}>
+                      <div>
+                        <div style={S.label}>Brand</div>
+                        <input
+                          style={S.input}
+                          value={activeCar.brand || ""}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setCars((prev) =>
+                              prev.map((c) => (c.id === activeCar.id ? { ...c, brand: v } : c)),
+                            );
+                          }}
+                          onBlur={() => updateCarPatch(activeCar.id, { brand: activeCar.brand })}
+                          placeholder="Toyota"
+                        />
                       </div>
-
-                      {priceQuote?.distanceKm != null ? (
-                        <div style={S.mutedSmall}>
-                          Nearest washer distance: {priceQuote.distanceKm.toFixed(2)} km
-                          {priceQuote.source ? ` • ${priceQuote.source}` : ""}
-                        </div>
-                      ) : null}
-
-                      {priceQuote?.message ? (
-                        <div style={S.mutedSmall}>{priceQuote.message}</div>
-                      ) : null}
-
-                      {priceQuoteErr ? <div style={S.errorText}>{priceQuoteErr}</div> : null}
-                    </>
-                  ) : (
-                    <div style={S.mutedSmall}>
-                      No services found. Create them in backend using <code>POST /services</code>.
+                      <div>
+                        <div style={S.label}>Model</div>
+                        <input
+                          style={S.input}
+                          value={activeCar.model || ""}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setCars((prev) =>
+                              prev.map((c) => (c.id === activeCar.id ? { ...c, model: v } : c)),
+                            );
+                          }}
+                          onBlur={() => updateCarPatch(activeCar.id, { model: activeCar.model })}
+                          placeholder="Prius"
+                        />
+                      </div>
                     </div>
-                  )}
-                </div>
+                    <div style={{ ...S.row2, marginTop: 10 }}>
+                      <div>
+                        <div style={S.label}>Plate</div>
+                        <input
+                          style={S.input}
+                          value={activeCar.plateNumber || ""}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setCars((prev) =>
+                              prev.map((c) =>
+                                c.id === activeCar.id ? { ...c, plateNumber: v } : c,
+                              ),
+                            );
+                          }}
+                          onBlur={() =>
+                            updateCarPatch(activeCar.id, {
+                              plateNumber: activeCar.plateNumber || null,
+                            })
+                          }
+                          placeholder="ABC-123"
+                        />
+                      </div>
+                      <div>
+                        <div style={S.label}>Color</div>
+                        <input
+                          style={S.input}
+                          value={activeCar.color || ""}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setCars((prev) =>
+                              prev.map((c) => (c.id === activeCar.id ? { ...c, color: v } : c)),
+                            );
+                          }}
+                          onBlur={() =>
+                            updateCarPatch(activeCar.id, { color: activeCar.color || null })
+                          }
+                          placeholder="Black"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </section>
 
-                <div style={S.washButtonsWrap}>
-                  <button
-                    style={S.washBtn}
-                    onClick={onWashNowDirect}
-                    disabled={washLoading || creditWashLoading || cashWashLoading}
-                  >
-                    {washLoading ? "CREATING ORDER..." : `WASH NOW — ${finalWashPrice || "-"} GEL`}
-                  </button>
-
-                  <button
-                    style={S.creditWashBtn}
-                    onClick={onWashNowCredits}
-                    disabled={washLoading || creditWashLoading || cashWashLoading}
-                  >
-                    {creditWashLoading ? "CHECKING CREDITS..." : "WASH NOW WITH CREDITS"}
-                  </button>
-
-                  <button
-                    style={S.cashWashBtn}
-                    onClick={onWashNowCash}
-                    disabled={washLoading || creditWashLoading || cashWashLoading}
-                  >
-                    {cashWashLoading ? "CREATING CASH ORDER..." : "WASH NOW WITH CASH"}
-                  </button>
-                </div>
-
-                <div style={S.mutedSmall}>
-                  Direct payment creates order and opens the payment page. Credit and cash go
-                  directly to the waiting page.
-                </div>
+          {/* Step 2 — Location */}
+          <section style={S.step}>
+            <div style={S.stepHead}>
+              <span style={S.stepNum}>2</span>
+              <div>
+                <h2 style={S.stepTitle}>Where should we come?</h2>
+                <p style={S.stepHint}>Use GPS for the fastest booking.</p>
               </div>
             </div>
-          )}
-        </section>
 
-        <section style={S.card}>
-          <h2 style={S.cardTitle}>Location</h2>
-
-          <div style={S.locationModes}>
             <button
-              style={{
-                ...S.pill,
-                ...(locMode === "GPS" ? S.pillActive : {}),
-              }}
+              style={S.primaryBig}
+              type="button"
               onClick={useGpsLocation}
+              disabled={gpsLoading}
             >
-              Track (GPS)
+              {gpsLoading ? "Finding you…" : "Use my current location"}
             </button>
 
             <button
-              style={{
-                ...S.pill,
-                ...(locMode === "MANUAL" ? S.pillActive : {}),
-              }}
+              style={S.secondaryBig}
+              type="button"
               onClick={() => {
                 setLocMode("MANUAL");
                 setGpsError("");
               }}
             >
-              Manual
+              Enter address instead
             </button>
-          </div>
 
-          <div style={S.locationBox}>
-            <div style={S.locationRow}>
-              <div style={S.locationIndicator} />
-              <div>
-                <div style={S.locationLabel}>Chosen location</div>
+            <div style={S.locationSummary}>
+              <div style={S.locationDot} />
+              <div style={{ minWidth: 0 }}>
+                <div style={S.label}>Wash location</div>
                 <div style={S.locationValue}>{currentAddressLabel}</div>
+                {hasLocation ? (
+                  <div style={S.okBadge}>Ready · washer can find you</div>
+                ) : (
+                  <div style={S.warnBadge}>Location still needed</div>
+                )}
+              </div>
+            </div>
 
-                {currentCoords ? (
-                  <div style={{ ...S.mutedSmall, marginTop: 6 }}>
-                    Coordinates: {currentCoords.lat.toFixed(5)}, {currentCoords.lng.toFixed(5)}
+            {(locMode === "MANUAL" || !hasLocation) && (
+              <div style={{ marginTop: 14 }}>
+                <div style={S.row2}>
+                  <div>
+                    <div style={S.label}>City</div>
+                    <input
+                      style={S.input}
+                      value={addressForm.city}
+                      onChange={(e) => updateAddressField("city", e.target.value)}
+                      placeholder="Tbilisi"
+                    />
+                  </div>
+                  <div>
+                    <div style={S.label}>Street</div>
+                    <input
+                      style={S.input}
+                      value={addressForm.street}
+                      onChange={(e) => updateAddressField("street", e.target.value)}
+                      placeholder="A. Kazbegi Ave"
+                    />
+                  </div>
+                </div>
+
+                <div style={{ ...S.row2, marginTop: 10 }}>
+                  <div>
+                    <div style={S.label}>Building</div>
+                    <input
+                      style={S.input}
+                      value={addressForm.building}
+                      onChange={(e) => updateAddressField("building", e.target.value)}
+                      placeholder="12"
+                    />
+                  </div>
+                  <div>
+                    <div style={S.label}>Comment for washer</div>
+                    <input
+                      style={S.input}
+                      value={addressForm.comment}
+                      onChange={(e) => updateAddressField("comment", e.target.value)}
+                      placeholder="Call when you arrive"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  style={S.textBtn}
+                  type="button"
+                  onClick={() => setShowAddressExtras((v) => !v)}
+                >
+                  {showAddressExtras ? "Hide entrance details" : "Add entrance / floor / apt"}
+                </button>
+
+                {showAddressExtras ? (
+                  <div style={{ ...S.row2, marginTop: 10 }}>
+                    <div>
+                      <div style={S.label}>Entrance</div>
+                      <input
+                        style={S.input}
+                        value={addressForm.entrance}
+                        onChange={(e) => updateAddressField("entrance", e.target.value)}
+                        placeholder="A"
+                      />
+                    </div>
+                    <div>
+                      <div style={S.label}>Floor</div>
+                      <input
+                        style={S.input}
+                        value={addressForm.floor}
+                        onChange={(e) => updateAddressField("floor", e.target.value)}
+                        placeholder="5"
+                      />
+                    </div>
+                    <div>
+                      <div style={S.label}>Apartment</div>
+                      <input
+                        style={S.input}
+                        value={addressForm.apartment}
+                        onChange={(e) => updateAddressField("apartment", e.target.value)}
+                        placeholder="23"
+                      />
+                    </div>
                   </div>
                 ) : null}
 
-                {manualGeoName ? (
-                  <div style={{ ...S.mutedSmall, marginTop: 6 }}>
-                    Found: {manualGeoName}
-                  </div>
-                ) : null}
+                <button
+                  style={{ ...S.secondaryBig, marginTop: 12 }}
+                  type="button"
+                  onClick={saveManualLocation}
+                  disabled={manualLoading}
+                >
+                  {manualLoading ? "Saving address…" : "Save this address"}
+                </button>
               </div>
-            </div>
-
-            <div style={{ ...S.row2, marginTop: 14 }}>
-              <div>
-                <div style={S.label}>City</div>
-                <input
-                  style={S.input}
-                  value={addressForm.city}
-                  onChange={(e) => updateAddressField("city", e.target.value)}
-                  placeholder="Tbilisi"
-                />
-              </div>
-
-              <div>
-                <div style={S.label}>Street</div>
-                <input
-                  style={S.input}
-                  value={addressForm.street}
-                  onChange={(e) => updateAddressField("street", e.target.value)}
-                  placeholder="A. Kazbegi Ave"
-                />
-              </div>
-            </div>
-
-            <div style={{ ...S.row2, marginTop: 10 }}>
-              <div>
-                <div style={S.label}>Building / House #</div>
-                <input
-                  style={S.input}
-                  value={addressForm.building}
-                  onChange={(e) => updateAddressField("building", e.target.value)}
-                  placeholder="12"
-                />
-              </div>
-
-              <div>
-                <div style={S.label}>Entrance (optional)</div>
-                <input
-                  style={S.input}
-                  value={addressForm.entrance}
-                  onChange={(e) => updateAddressField("entrance", e.target.value)}
-                  placeholder="A"
-                />
-              </div>
-            </div>
-
-            <div style={{ ...S.row2, marginTop: 10 }}>
-              <div>
-                <div style={S.label}>Floor (optional)</div>
-                <input
-                  style={S.input}
-                  value={addressForm.floor}
-                  onChange={(e) => updateAddressField("floor", e.target.value)}
-                  placeholder="5"
-                />
-              </div>
-
-              <div>
-                <div style={S.label}>Apartment (optional)</div>
-                <input
-                  style={S.input}
-                  value={addressForm.apartment}
-                  onChange={(e) => updateAddressField("apartment", e.target.value)}
-                  placeholder="23"
-                />
-              </div>
-            </div>
-
-            <div style={{ marginTop: 10 }}>
-              <div style={S.label}>Comment (optional)</div>
-              <input
-                style={S.input}
-                value={addressForm.comment}
-                onChange={(e) => updateAddressField("comment", e.target.value)}
-                placeholder="Call me when arrived"
-              />
-            </div>
-
-            <div style={S.locationActions}>
-              <button style={S.primaryBtn} onClick={useGpsLocation} disabled={gpsLoading}>
-                {gpsLoading ? "Tracking..." : "Track my location"}
-              </button>
-
-              <button
-                style={S.secondaryActionBtn}
-                onClick={saveManualLocation}
-                disabled={manualLoading}
-              >
-                {manualLoading ? "Finding address..." : "Save manual location"}
-              </button>
-            </div>
+            )}
 
             {gpsError ? <div style={S.errorText}>{gpsError}</div> : null}
             {manualError ? <div style={S.errorText}>{manualError}</div> : null}
+          </section>
 
-            <div style={S.mutedSmall}>
-              GPS and manual locations are saved locally. Price updates after location and
-              service are selected.
+          {/* Step 3 — Service */}
+          <section style={S.step}>
+            <div style={S.stepHead}>
+              <span style={S.stepNum}>3</span>
+              <div>
+                <h2 style={S.stepTitle}>Choose a wash</h2>
+                <p style={S.stepHint}>Clear prices. No surprises.</p>
+              </div>
             </div>
-          </div>
-        </section>
 
-        <section style={S.card}>
-          <div style={S.cardHeaderRow}>
-            <h2 style={S.cardTitle}>Top Washers</h2>
-            <a style={S.linkBtn} href="/washers">
-              View all →
-            </a>
-          </div>
+            {servicesLoading ? <div style={S.muted}>Loading services…</div> : null}
+            {servicesErr ? <div style={S.errorText}>{servicesErr}</div> : null}
 
-          {washersLoading ? (
-            <div style={S.muted}>Loading washers…</div>
-          ) : (
-            <div style={S.washersGrid}>
-              {washers.map((w) => (
-                <div key={w.id} style={S.washerCard}>
-                  <div style={S.washerAvatar}>
-                    <div style={S.washerAvatarInner}>🧽</div>
-                  </div>
-
-                  <div style={S.washerInfo}>
-                    <div style={S.washerName}>{w.fullName}</div>
-                    <div style={S.washerMeta}>
-                      ⭐ {w.avgRating.toFixed(1)} ({w.totalReviews})
-                      {typeof w.distanceKm === "number" ? ` • ${w.distanceKm.toFixed(1)}km` : ""}
+            <div style={S.serviceList}>
+              {services.map((s) => {
+                const active = s.id === serviceId;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => setServiceId(s.id)}
+                    style={{
+                      ...S.serviceTile,
+                      ...(active ? S.serviceTileActive : {}),
+                    }}
+                  >
+                    <div style={S.serviceTop}>
+                      <span style={S.serviceName}>{s.name}</span>
+                      <span style={S.servicePrice}>{s.priceGel} GEL</span>
                     </div>
-                  </div>
+                    <div style={S.serviceMeta}>{s.durationMin} min</div>
+                    {s.description ? (
+                      <div style={S.serviceDesc}>{s.description}</div>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
 
-                  <a style={S.smallBtnInline} href={`/washers/${w.id}`}>
-                    View
-                  </a>
+            {!services.length && !servicesLoading ? (
+              <div style={S.muted}>No services available yet. Please check back soon.</div>
+            ) : null}
+
+            <div style={S.priceCard}>
+              <div style={S.priceRow}>
+                <span>Service</span>
+                <strong>{selectedService?.priceGel ?? "—"} GEL</strong>
+              </div>
+              <div style={S.priceRow}>
+                <span>Travel</span>
+                <strong>
+                  {priceQuoteLoading
+                    ? "…"
+                    : priceQuote?.distancePriceGel != null
+                      ? `${priceQuote.distancePriceGel} GEL`
+                      : "0 GEL"}
+                </strong>
+              </div>
+              <div style={S.priceTotal}>
+                <span>Total</span>
+                <strong>{finalWashPrice || "—"} GEL</strong>
+              </div>
+              {priceQuote?.distanceKm != null ? (
+                <div style={S.mutedSmall}>
+                  Nearest washer about {priceQuote.distanceKm.toFixed(1)} km away
                 </div>
+              ) : null}
+              {priceQuote?.message ? (
+                <div style={S.mutedSmall}>{priceQuote.message}</div>
+              ) : null}
+              {priceQuoteErr ? <div style={S.errorText}>{priceQuoteErr}</div> : null}
+            </div>
+          </section>
+
+          {/* Step 4 — Pay */}
+          <section style={S.step}>
+            <div style={S.stepHead}>
+              <span style={S.stepNum}>4</span>
+              <div>
+                <h2 style={S.stepTitle}>How will you pay?</h2>
+                <p style={S.stepHint}>One tap to confirm — we handle the rest.</p>
+              </div>
+            </div>
+
+            <div style={S.payList}>
+              {(
+                [
+                  {
+                    id: "DIRECT" as const,
+                    title: "Pay now",
+                    desc: "Card / PayPal — secure checkout",
+                  },
+                  {
+                    id: "CREDIT" as const,
+                    title: "Subscription credits",
+                    desc: "Use washes from your plan",
+                  },
+                  {
+                    id: "CASH" as const,
+                    title: "Cash to washer",
+                    desc: "Pay when the wash is done",
+                  },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setPayMethod(opt.id)}
+                  style={{
+                    ...S.payTile,
+                    ...(payMethod === opt.id ? S.payTileActive : {}),
+                  }}
+                >
+                  <div style={S.payTitle}>{opt.title}</div>
+                  <div style={S.payDesc}>{opt.desc}</div>
+                </button>
               ))}
             </div>
-          )}
+          </section>
 
-          <div style={S.mutedSmall}>Ranked by rating.</div>
-        </section>
+          {/* Washers — secondary, calm */}
+          <section style={S.sideSection}>
+            <div style={S.stepHead}>
+              <div>
+                <h2 style={S.sideTitle}>Trusted washers nearby</h2>
+                <p style={S.stepHint}>Highly rated people who already work with Tempi.</p>
+              </div>
+            </div>
+
+            {washersLoading ? (
+              <div style={S.muted}>Loading…</div>
+            ) : (
+              <div style={S.washersRow}>
+                {washers.slice(0, 4).map((w) => (
+                  <div key={w.id} style={S.washerPill}>
+                    <div style={S.washerName}>{w.fullName}</div>
+                    <div style={S.washerMeta}>
+                      {w.avgRating.toFixed(1)} · {w.totalReviews} reviews
+                      {typeof w.distanceKm === "number"
+                        ? ` · ${w.distanceKm.toFixed(1)} km`
+                        : ""}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <div style={S.footerLinks}>
+            <a style={S.navLink} href="/washer/register-washer">
+              Work as a washer
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div style={S.stickyBar}>
+        <div style={S.stickyInner}>
+          <div style={S.stickyMeta}>
+            <div style={S.stickyPrice}>{finalWashPrice || "—"} GEL</div>
+            <div style={S.stickySub}>
+              {!activeCar
+                ? "Add a car to continue"
+                : !hasLocation
+                  ? "Set your location"
+                  : !selectedService
+                    ? "Choose a service"
+                    : payMethod === "CASH"
+                      ? "Cash when finished"
+                      : payMethod === "CREDIT"
+                        ? "Using plan credits"
+                        : "Secure payment next"}
+            </div>
+          </div>
+          <button
+            style={{
+              ...S.stickyCta,
+              ...(!canBook ? S.stickyCtaDisabled : {}),
+            }}
+            type="button"
+            disabled={!canBook}
+            onClick={onBookWash}
+          >
+            {bookLabel}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -1169,392 +1354,416 @@ function readFileAsDataUrl(file: File): Promise<string> {
 const S: Record<string, React.CSSProperties> = {
   page: {
     minHeight: "100vh",
-    padding: 16,
-    background: "#0b0f19",
-    color: "#fff",
-    fontFamily: "ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial",
+    padding: "20px 16px 120px",
+    color: "var(--ink)",
+    fontFamily: "var(--font-sans)",
   },
   header: {
+    maxWidth: 720,
+    margin: "0 auto 22px",
+    display: "flex",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    gap: 16,
+    flexWrap: "wrap",
+  },
+  brand: {
+    fontFamily: "var(--font-display)",
+    fontSize: "clamp(40px, 8vw, 56px)",
+    fontWeight: 600,
+    letterSpacing: "-0.04em",
+    lineHeight: 1,
+    margin: 0,
+  },
+  tagline: {
+    margin: "8px 0 0",
+    color: "var(--ink-soft)",
+    fontSize: 16,
+  },
+  nav: { display: "flex", gap: 8, flexWrap: "wrap" },
+  navLink: {
+    textDecoration: "none",
+    padding: "10px 14px",
+    borderRadius: 999,
+    background: "rgba(255,255,255,0.7)",
+    border: "1px solid var(--line)",
+    fontWeight: 600,
+    fontSize: 14,
+    color: "var(--ink)",
+  },
+  shell: { maxWidth: 720, margin: "0 auto" },
+  flow: { display: "grid", gap: 16 },
+  step: {
+    background: "var(--surface)",
+    border: "1px solid var(--line)",
+    borderRadius: "var(--radius)",
+    padding: 20,
+    boxShadow: "var(--shadow)",
+  },
+  stepHead: {
     display: "flex",
     alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: 16,
-    marginBottom: 18,
-    flexWrap: "wrap",
-  },
-  title: { margin: 0, fontSize: 28, fontWeight: 800, letterSpacing: "-0.02em" },
-  subtitle: { marginTop: 6, opacity: 0.8 },
-  headerActions: { display: "flex", gap: 10, flexWrap: "wrap" },
-
-  grid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-    gap: 16,
-  },
-
-  card: {
-    background: "rgba(255,255,255,0.06)",
-    border: "1px solid rgba(255,255,255,0.12)",
-    borderRadius: 18,
-    padding: 16,
-    minWidth: 0,
-  },
-
-  cardHeaderRow: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
     gap: 12,
-    marginBottom: 10,
-    flexWrap: "wrap",
+    marginBottom: 16,
   },
-  cardTitle: { margin: 0, fontSize: 18, fontWeight: 800 },
-
-  linkBtn: {
-    background: "transparent",
-    border: "none",
-    color: "rgba(255,255,255,0.86)",
-    cursor: "pointer",
-    padding: "6px 8px",
-    borderRadius: 10,
-    textDecoration: "none",
-  },
-modalOverlay: {
-  position: "fixed",
-  inset: 0,
-  zIndex: 9999,
-  background: "rgba(0,0,0,0.72)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: 18,
-},
-
-modalCard: {
-  width: "100%",
-  maxWidth: 420,
-  borderRadius: 24,
-  background: "#ffffff",
-  color: "#0b0f19",
-  padding: 24,
-  boxShadow: "0 24px 80px rgba(0,0,0,0.45)",
-},
-
-modalIcon: {
-  width: 58,
-  height: 58,
-  borderRadius: 18,
-  background: "#eefdf6",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontSize: 30,
-  marginBottom: 14,
-},
-
-modalTitle: {
-  margin: 0,
-  fontSize: 22,
-  fontWeight: 900,
-},
-
-modalText: {
-  marginTop: 10,
-  color: "#4b5563",
-  lineHeight: 1.5,
-  fontSize: 14,
-},
-
-modalActions: {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: 10,
-  marginTop: 22,
-},
-
-modalSecondaryBtn: {
-  border: "1px solid #d1d5db",
-  background: "#fff",
-  color: "#111827",
-  borderRadius: 14,
-  padding: "12px 10px",
-  fontWeight: 900,
-  cursor: "pointer",
-},
-
-modalPrimaryBtn: {
-  border: "none",
-  background: "#0b0f19",
-  color: "#fff",
-  borderRadius: 14,
-  padding: "12px 10px",
-  fontWeight: 900,
-  cursor: "pointer",
-},
-  secondaryBtn: {
-    background: "rgba(255,255,255,0.10)",
-    color: "#fff",
-    padding: "10px 12px",
-    borderRadius: 14,
-    fontWeight: 800,
-    textDecoration: "none",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  primaryBtn: {
-    background: "#fff",
-    color: "#0b0f19",
-    padding: "12px 12px",
-    borderRadius: 14,
-    fontWeight: 900,
-    width: "100%",
-    border: "none",
-    cursor: "pointer",
-  },
-
-  secondaryActionBtn: {
-    background: "rgba(255,255,255,0.10)",
-    color: "#fff",
-    padding: "12px 12px",
-    borderRadius: 14,
-    fontWeight: 900,
-    width: "100%",
-    border: "1px solid rgba(255,255,255,0.16)",
-    cursor: "pointer",
-  },
-
-  smallBtn: {
-    marginTop: 10,
-    background: "rgba(255,255,255,0.12)",
-    color: "#fff",
-    padding: "10px 10px",
-    borderRadius: 14,
-    fontWeight: 800,
-    width: "100%",
-    border: "none",
-    cursor: "pointer",
-  },
-
-  smallBtnInline: {
-    background: "rgba(255,255,255,0.12)",
-    color: "#fff",
-    padding: "8px 10px",
+  stepNum: {
+    width: 32,
+    height: 32,
     borderRadius: 12,
-    fontWeight: 800,
-    textDecoration: "none",
-    whiteSpace: "nowrap",
-  },
-
-  muted: { opacity: 0.8, marginTop: 8 },
-  mutedSmall: { opacity: 0.7, marginTop: 10, fontSize: 12, lineHeight: 1.35 },
-  errorText: { marginTop: 10, color: "#ffb4b4" },
-
-  carTabs: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 },
-  carTab: {
-    background: "rgba(255,255,255,0.08)",
-    color: "#fff",
-    border: "1px solid rgba(255,255,255,0.10)",
-    padding: "8px 10px",
-    borderRadius: 999,
-    cursor: "pointer",
-    fontWeight: 700,
-    opacity: 0.9,
-  },
-  carTabActive: { background: "rgba(255,255,255,0.18)", opacity: 1 },
-
-  carCard: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-    gap: 14,
-  },
-
-  carImageBox: {
-    borderRadius: 16,
-    border: "1px dashed rgba(255,255,255,0.22)",
-    background: "rgba(0,0,0,0.15)",
-    padding: 12,
-    minWidth: 0,
-  },
-  carImage: {
-    width: "100%",
-    height: 220,
-    objectFit: "cover",
-    borderRadius: 14,
-    border: "1px solid rgba(255,255,255,0.12)",
-  },
-  carImagePlaceholder: {
-    height: 220,
+    background: "var(--accent-soft)",
+    color: "var(--accent-ink)",
     display: "grid",
     placeItems: "center",
-    borderRadius: 14,
-    background: "rgba(255,255,255,0.06)",
-    border: "1px solid rgba(255,255,255,0.10)",
-    textAlign: "center",
-    padding: 10,
+    fontWeight: 800,
+    flex: "0 0 32px",
+    marginTop: 2,
   },
-  carEmoji: { fontSize: 42, marginBottom: 8 },
-
-  carMeta: { display: "flex", flexDirection: "column", gap: 10, minWidth: 0 },
-
-  label: { fontSize: 12, fontWeight: 800, opacity: 0.8, marginBottom: 6 },
-
+  stepTitle: { margin: 0, fontSize: 20, fontWeight: 750, letterSpacing: "-0.02em" },
+  stepHint: { margin: "4px 0 0", color: "var(--ink-soft)", fontSize: 14 },
+  textBtn: {
+    marginLeft: "auto",
+    border: "none",
+    background: "transparent",
+    color: "var(--accent)",
+    fontWeight: 700,
+    cursor: "pointer",
+    padding: "6px 0",
+  },
+  muted: { color: "var(--ink-soft)", marginTop: 4 },
+  mutedSmall: { color: "var(--ink-soft)", marginTop: 8, fontSize: 13, lineHeight: 1.4 },
+  errorText: { marginTop: 10, color: "var(--danger)", fontSize: 14 },
+  carList: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 },
+  carChip: {
+    border: "1px solid var(--line)",
+    background: "var(--surface-2)",
+    borderRadius: 16,
+    padding: "12px 14px",
+    cursor: "pointer",
+    textAlign: "left",
+    minWidth: 120,
+  },
+  carChipActive: {
+    borderColor: "var(--accent)",
+    background: "var(--accent-soft)",
+    boxShadow: "inset 0 0 0 1px var(--accent)",
+  },
+  carChipName: { display: "block", fontWeight: 700, fontSize: 14 },
+  carChipMeta: { display: "block", marginTop: 4, fontSize: 12, color: "var(--ink-soft)" },
+  emptyCta: {
+    width: "100%",
+    padding: 18,
+    borderRadius: 16,
+    border: "1px dashed var(--accent)",
+    background: "var(--accent-soft)",
+    color: "var(--accent-ink)",
+    fontWeight: 750,
+    cursor: "pointer",
+  },
+  softPanel: {
+    marginTop: 4,
+    padding: 14,
+    borderRadius: 16,
+    background: "var(--surface-2)",
+    border: "1px solid var(--line)",
+  },
+  softPanelRow: { display: "flex", gap: 12, alignItems: "center" },
+  carPreview: { flex: "0 0 72px" },
+  carThumb: {
+    width: 72,
+    height: 72,
+    objectFit: "cover",
+    borderRadius: 14,
+    border: "1px solid var(--line)",
+  },
+  carThumbEmpty: {
+    width: 72,
+    height: 72,
+    borderRadius: 14,
+    display: "grid",
+    placeItems: "center",
+    background: "#fff",
+    border: "1px dashed var(--line)",
+    fontSize: 11,
+    color: "var(--ink-soft)",
+    textAlign: "center",
+    padding: 6,
+  },
+  carSummaryName: { fontWeight: 750, fontSize: 16 },
+  inlineActions: { display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 },
+  ghostBtn: {
+    border: "1px solid var(--line)",
+    background: "#fff",
+    borderRadius: 999,
+    padding: "8px 12px",
+    fontWeight: 650,
+    cursor: "pointer",
+    fontSize: 13,
+  },
+  dangerGhost: {
+    border: "1px solid rgba(180,35,24,0.25)",
+    background: "#fff",
+    color: "var(--danger)",
+    borderRadius: 999,
+    padding: "8px 12px",
+    fontWeight: 650,
+    cursor: "pointer",
+    fontSize: 13,
+  },
+  label: {
+    fontSize: 12,
+    fontWeight: 700,
+    color: "var(--ink-soft)",
+    marginBottom: 6,
+    letterSpacing: "0.02em",
+  },
   input: {
     width: "100%",
-    padding: "12px 12px",
+    padding: "13px 14px",
     borderRadius: 14,
-    border: "1px solid rgba(255,255,255,0.14)",
-    background: "rgba(0,0,0,0.22)",
-    color: "#fff",
+    border: "1px solid var(--line)",
+    background: "#fff",
+    color: "var(--ink)",
     outline: "none",
     minWidth: 0,
   },
-
   row2: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
     gap: 10,
   },
-
-  pricesBox: {
-    marginTop: 6,
-    padding: 12,
-    borderRadius: 16,
-    border: "1px solid rgba(255,255,255,0.10)",
-    background: "rgba(0,0,0,0.18)",
-  },
-  pricesTitle: { fontWeight: 900, marginBottom: 8 },
-  totalPrice: {
-    fontSize: 15,
-    fontWeight: 800,
-    lineHeight: 1.7,
-  },
-
-  washButtonsWrap: {
-    display: "grid",
-    gap: 10,
-    marginTop: 8,
-  },
-
-  washBtn: {
+  primaryBig: {
     width: "100%",
-    padding: "14px 14px",
+    padding: "16px 18px",
     borderRadius: 16,
     border: "none",
-    cursor: "pointer",
-    fontWeight: 900,
-    background: "#3cffb1",
-    color: "#062112",
-    fontSize: 15,
-  },
-
-  creditWashBtn: {
-    width: "100%",
-    padding: "14px 14px",
-    borderRadius: 16,
-    border: "1px solid rgba(255,255,255,0.18)",
-    cursor: "pointer",
-    fontWeight: 900,
-    background: "rgba(255,255,255,0.10)",
+    background: "var(--accent)",
     color: "#fff",
-    fontSize: 15,
+    fontWeight: 750,
+    fontSize: 16,
+    cursor: "pointer",
   },
-
-  cashWashBtn: {
+  secondaryBig: {
     width: "100%",
-    padding: "14px 14px",
-    borderRadius: 16,
-    border: "1px solid rgba(255,255,255,0.18)",
-    cursor: "pointer",
-    fontWeight: 900,
-    background: "#ffd166",
-    color: "#2b2100",
-    fontSize: 15,
-  },
-
-  locationModes: { display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" },
-  pill: {
-    background: "rgba(255,255,255,0.08)",
-    color: "#fff",
-    border: "1px solid rgba(255,255,255,0.10)",
-    padding: "8px 12px",
-    borderRadius: 999,
-    cursor: "pointer",
-    fontWeight: 700,
-  },
-  pillActive: {
-    background: "rgba(255,255,255,0.18)",
-  },
-
-  locationBox: {
-    marginTop: 8,
-    padding: 12,
-    borderRadius: 16,
-    border: "1px solid rgba(255,255,255,0.10)",
-    background: "rgba(0,0,0,0.18)",
-  },
-  locationRow: {
-    display: "flex",
-    gap: 10,
-    alignItems: "flex-start",
     marginTop: 10,
+    padding: "14px 18px",
+    borderRadius: 16,
+    border: "1px solid var(--line)",
+    background: "#fff",
+    color: "var(--ink)",
+    fontWeight: 700,
+    fontSize: 15,
+    cursor: "pointer",
   },
-  locationIndicator: {
+  locationSummary: {
+    marginTop: 16,
+    display: "flex",
+    gap: 12,
+    padding: 14,
+    borderRadius: 16,
+    background: "var(--surface-2)",
+    border: "1px solid var(--line)",
+  },
+  locationDot: {
     width: 12,
     height: 12,
     borderRadius: 999,
-    background: "#3cffb1",
-    marginTop: 4,
+    background: "var(--accent)",
+    marginTop: 6,
     flex: "0 0 12px",
   },
-  locationLabel: { fontSize: 12, fontWeight: 800, opacity: 0.8 },
-  locationValue: { marginTop: 4, lineHeight: 1.4, wordBreak: "break-word" },
-
-  locationActions: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-    gap: 10,
-    marginTop: 12,
+  locationValue: {
+    marginTop: 4,
+    lineHeight: 1.45,
+    wordBreak: "break-word",
+    fontWeight: 600,
   },
-
-  washersGrid: {
-    display: "grid",
-    gap: 10,
-    marginTop: 10,
+  okBadge: {
+    display: "inline-block",
+    marginTop: 8,
+    padding: "4px 10px",
+    borderRadius: 999,
+    background: "var(--accent-soft)",
+    color: "var(--accent-ink)",
+    fontSize: 12,
+    fontWeight: 700,
   },
-  washerCard: {
-    display: "grid",
-    gridTemplateColumns: "52px 1fr auto",
-    gap: 10,
+  warnBadge: {
+    display: "inline-block",
+    marginTop: 8,
+    padding: "4px 10px",
+    borderRadius: 999,
+    background: "#fff1e8",
+    color: "var(--warn)",
+    fontSize: 12,
+    fontWeight: 700,
+  },
+  serviceList: { display: "grid", gap: 10 },
+  serviceTile: {
+    textAlign: "left",
+    padding: 16,
+    borderRadius: 16,
+    border: "1px solid var(--line)",
+    background: "var(--surface-2)",
+    cursor: "pointer",
+  },
+  serviceTileActive: {
+    borderColor: "var(--accent)",
+    background: "var(--accent-soft)",
+    boxShadow: "inset 0 0 0 1px var(--accent)",
+  },
+  serviceTop: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: 12,
+    alignItems: "baseline",
+  },
+  serviceName: { fontWeight: 750, fontSize: 16 },
+  servicePrice: { fontWeight: 800, color: "var(--accent-ink)" },
+  serviceMeta: { marginTop: 4, fontSize: 13, color: "var(--ink-soft)" },
+  serviceDesc: { marginTop: 8, fontSize: 13, color: "var(--ink-soft)", lineHeight: 1.4 },
+  priceCard: {
+    marginTop: 14,
+    padding: 16,
+    borderRadius: 16,
+    background: "#fff",
+    border: "1px solid var(--line)",
+  },
+  priceRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    marginBottom: 8,
+    color: "var(--ink-soft)",
+    fontSize: 14,
+  },
+  priceTotal: {
+    display: "flex",
+    justifyContent: "space-between",
+    paddingTop: 10,
+    borderTop: "1px solid var(--line)",
+    fontSize: 18,
+    fontWeight: 750,
+  },
+  payList: { display: "grid", gap: 10 },
+  payTile: {
+    textAlign: "left",
+    padding: 16,
+    borderRadius: 16,
+    border: "1px solid var(--line)",
+    background: "var(--surface-2)",
+    cursor: "pointer",
+  },
+  payTileActive: {
+    borderColor: "var(--accent)",
+    background: "var(--accent-soft)",
+    boxShadow: "inset 0 0 0 1px var(--accent)",
+  },
+  payTitle: { fontWeight: 750, fontSize: 15 },
+  payDesc: { marginTop: 4, fontSize: 13, color: "var(--ink-soft)" },
+  sideSection: {
+    padding: "8px 4px 0",
+  },
+  sideTitle: { margin: 0, fontSize: 18, fontWeight: 750 },
+  washersRow: { display: "grid", gap: 8 },
+  washerPill: {
+    padding: "12px 14px",
+    borderRadius: 14,
+    background: "rgba(255,255,255,0.65)",
+    border: "1px solid var(--line)",
+  },
+  washerName: { fontWeight: 700 },
+  washerMeta: { marginTop: 4, fontSize: 13, color: "var(--ink-soft)" },
+  footerLinks: { padding: "8px 0 24px", textAlign: "center" },
+  stickyBar: {
+    position: "fixed",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 50,
+    padding: "12px 16px calc(12px + env(safe-area-inset-bottom))",
+    background: "rgba(255,255,255,0.88)",
+    backdropFilter: "blur(14px)",
+    borderTop: "1px solid var(--line)",
+  },
+  stickyInner: {
+    maxWidth: 720,
+    margin: "0 auto",
+    display: "flex",
+    gap: 12,
     alignItems: "center",
-    padding: 12,
-    borderRadius: 16,
-    background: "rgba(0,0,0,0.16)",
-    border: "1px solid rgba(255,255,255,0.10)",
   },
-  washerAvatar: {
-    width: 52,
-    height: 52,
+  stickyMeta: { flex: 1, minWidth: 0 },
+  stickyPrice: { fontWeight: 800, fontSize: 20, letterSpacing: "-0.02em" },
+  stickySub: { fontSize: 12, color: "var(--ink-soft)", marginTop: 2 },
+  stickyCta: {
+    border: "none",
     borderRadius: 16,
-    background: "rgba(255,255,255,0.10)",
+    padding: "16px 20px",
+    background: "var(--accent)",
+    color: "#fff",
+    fontWeight: 750,
+    fontSize: 15,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+  },
+  stickyCtaDisabled: {
+    opacity: 0.45,
+    cursor: "not-allowed",
+  },
+  modalOverlay: {
+    position: "fixed",
+    inset: 0,
+    zIndex: 9999,
+    background: "rgba(19,37,43,0.45)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 18,
+  },
+  modalCard: {
+    width: "100%",
+    maxWidth: 420,
+    borderRadius: 24,
+    background: "#fff",
+    color: "var(--ink)",
+    padding: 24,
+    boxShadow: "var(--shadow)",
+  },
+  modalIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    background: "var(--accent-soft)",
+    color: "var(--accent)",
     display: "grid",
     placeItems: "center",
-  },
-  washerAvatarInner: { fontSize: 24 },
-  washerInfo: { minWidth: 0 },
-  washerName: {
+    fontSize: 22,
+    marginBottom: 14,
     fontWeight: 800,
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
   },
-  washerMeta: {
-    marginTop: 4,
-    opacity: 0.78,
-    fontSize: 12,
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
+  modalTitle: { margin: 0, fontSize: 22, fontWeight: 750, letterSpacing: "-0.02em" },
+  modalText: { marginTop: 10, color: "var(--ink-soft)", lineHeight: 1.5, fontSize: 14 },
+  modalActions: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: 10,
+    marginTop: 22,
+  },
+  modalSecondaryBtn: {
+    border: "1px solid var(--line)",
+    background: "#fff",
+    color: "var(--ink)",
+    borderRadius: 14,
+    padding: "12px 10px",
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+  modalPrimaryBtn: {
+    border: "none",
+    background: "var(--accent)",
+    color: "#fff",
+    borderRadius: 14,
+    padding: "12px 10px",
+    fontWeight: 750,
+    cursor: "pointer",
   },
 };

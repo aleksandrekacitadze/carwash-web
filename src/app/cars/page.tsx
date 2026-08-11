@@ -153,9 +153,9 @@ const S: Record<string, React.CSSProperties> = {
   page: {
     minHeight: "100vh",
     padding: 24,
-    background: "#0b0f19",
-    color: "#fff",
-    fontFamily: "ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial",
+    background: "transparent",
+    color: "var(--ink)",
+    fontFamily: "var(--font-sans)",
   },
   header: {
     display: "flex",
@@ -169,8 +169,8 @@ const S: Record<string, React.CSSProperties> = {
   grid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 },
 
   card: {
-    background: "rgba(255,255,255,0.06)",
-    border: "1px solid rgba(255,255,255,0.12)",
+    background: "var(--surface)",
+    border: "1px solid var(--line)",
     borderRadius: 18,
     padding: 16,
   },
@@ -182,9 +182,9 @@ const S: Record<string, React.CSSProperties> = {
     width: "100%",
     padding: "12px 12px",
     borderRadius: 14,
-    border: "1px solid rgba(255,255,255,0.14)",
-    background: "rgba(0,0,0,0.22)",
-    color: "#fff",
+    border: "1px solid var(--line)",
+    background: "#fff",
+    color: "var(--ink)",
     outline: "none",
     marginTop: 12,
   },
@@ -202,8 +202,8 @@ const S: Record<string, React.CSSProperties> = {
   },
 
   btn: {
-    background: "rgba(255,255,255,0.10)",
-    color: "#fff",
+    background: "var(--surface-2)",
+    color: "var(--ink)",
     padding: "10px 12px",
     borderRadius: 14,
     fontWeight: 800,
@@ -217,8 +217,8 @@ const S: Record<string, React.CSSProperties> = {
   mutedSmall: { opacity: 0.7, marginTop: 10, fontSize: 12 },
 
   carItem: {
-    background: "rgba(0,0,0,0.18)",
-    border: "1px solid rgba(255,255,255,0.10)",
+    background: "var(--surface-2)",
+    border: "1px solid var(--line)",
     borderRadius: 16,
     padding: 12,
   },
@@ -227,7 +227,7 @@ const S: Record<string, React.CSSProperties> = {
   dangerBtn: {
     background: "rgba(255,100,100,0.18)",
     border: "1px solid rgba(255,100,100,0.35)",
-    color: "#fff",
+    color: "var(--ink)",
     padding: "8px 10px",
     borderRadius: 12,
     fontWeight: 900,

@@ -179,15 +179,15 @@ return res.data.providerOrderId;
 }
 
 const S: Record<string, React.CSSProperties> = {
-  page: { minHeight: "100vh", padding: 24, background: "#0b0f19", color: "#fff" },
+  page: { minHeight: "100vh", padding: 24, background: "transparent", color: "var(--ink)" },
   header: { display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 12, flexWrap: "wrap" },
   title: { margin: 0, fontSize: 26, fontWeight: 950 },
   sub: { opacity: 0.8, marginTop: 6 },
-  walletPill: { padding: "10px 12px", borderRadius: 999, border: "1px solid rgba(255,255,255,0.14)", background: "rgba(255,255,255,0.08)", fontWeight: 900 },
+  walletPill: { padding: "10px 12px", borderRadius: 999, border: "1px solid var(--line)", background: "var(--surface-2)", fontWeight: 900 },
   grid: { marginTop: 14, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 },
-  card: { padding: 14, borderRadius: 16, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.06)" },
+  card: { padding: 14, borderRadius: 16, border: "1px solid var(--line)", background: "var(--surface)" },
   h2: { margin: 0, fontSize: 18, fontWeight: 950 },
   small: { marginTop: 10, fontSize: 12, opacity: 0.85 },
-  planBtn: { textAlign: "left", padding: 12, borderRadius: 14, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.18)", color: "#fff", cursor: "pointer" },
-  planBtnActive: { border: "1px solid rgba(60,255,177,0.35)", background: "rgba(60,255,177,0.10)" },
+  planBtn: { textAlign: "left", padding: 12, borderRadius: 14, border: "1px solid var(--line)", background: "var(--surface-2)", color: "var(--ink)", cursor: "pointer" },
+  planBtnActive: { border: "1px solid var(--line)", background: "var(--accent-soft)" },
 };

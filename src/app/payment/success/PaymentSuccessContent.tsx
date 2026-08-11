@@ -185,9 +185,9 @@ const S: Record<
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    background: "#0b0f19",
+    background: "transparent",
     padding: 20,
-    color: "#fff",
+    color: "var(--ink)",
     fontFamily: "system-ui",
   },
 
@@ -196,10 +196,9 @@ const S: Record<
     maxWidth: 420,
     borderRadius: 24,
     padding: 28,
-    background:
-      "rgba(255,255,255,0.06)",
+    background: "var(--surface)",
     border:
-      "1px solid rgba(255,255,255,0.10)",
+      "1px solid var(--line)",
     backdropFilter:
       "blur(14px)",
     textAlign: "center",
@@ -246,8 +245,8 @@ const S: Record<
     border: "none",
     borderRadius: 16,
     padding: "14px 18px",
-    background: "#3cffb1",
-    color: "#062112",
+    background: "var(--accent)",
+    color: "#fff",
     fontWeight: 950,
     fontSize: 16,
     cursor: "pointer",

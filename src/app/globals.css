@@ -1,30 +1,69 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #e7f1f4;
+  --bg-deep: #d4e8ee;
+  --ink: #13252b;
+  --ink-soft: #4a6068;
+  --surface: #ffffff;
+  --surface-2: #f4fafb;
+  --line: rgba(19, 37, 43, 0.1);
+  --accent: #0a7c72;
+  --accent-ink: #043834;
+  --accent-soft: #d5f0ec;
+  --warn: #c45c26;
+  --danger: #b42318;
+  --shadow: 0 18px 50px rgba(19, 37, 43, 0.08);
+  --radius: 20px;
+  --font-sans: var(--font-outfit), "Segoe UI", sans-serif;
+  --font-display: var(--font-fraunces), Georgia, serif;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--bg);
+  --color-foreground: var(--ink);
+  --font-sans: var(--font-sans);
 }
+
 .leaflet-container {
   width: 100%;
   height: 100%;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background:
+    radial-gradient(1200px 600px at 10% -10%, #cfe8ef 0%, transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, #dff3ef 0%, transparent 50%),
+    linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%);
+  background-attachment: fixed;
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+a {
+  color: inherit;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
 }

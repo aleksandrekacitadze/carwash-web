@@ -218,11 +218,11 @@ export default function AdminButton() {
 const baseBtn: React.CSSProperties = {
   padding: "12px 14px",
   borderRadius: 14,
-  border: "1px solid rgba(255,255,255,0.15)",
+  border: "none",
   color: "#fff",
-  fontWeight: 900,
+  fontWeight: 800,
   cursor: "pointer",
-  boxShadow: "0 10px 25px rgba(0,0,0,0.35)",
+  boxShadow: "var(--shadow)",
 };
 
 const S: Record<string, React.CSSProperties> = {
@@ -237,30 +237,30 @@ const S: Record<string, React.CSSProperties> = {
   },
   adminBtn: {
     ...baseBtn,
-    background: "#111827",
+    background: "var(--ink)",
   },
   customerBtn: {
     ...baseBtn,
-    background: "#1d4ed8",
+    background: "var(--accent)",
   },
   paymentBtn: {
     ...baseBtn,
-    background: "#7c3aed",
+    background: "#0b6e7a",
   },
   waitingBtn: {
     ...baseBtn,
-    background: "#ca8a04",
+    background: "#c45c26",
   },
   activeBtn: {
     ...baseBtn,
-    background: "#047857",
+    background: "var(--accent)",
   },
   warningBtn: {
     ...baseBtn,
-    background: "#b45309",
+    background: "#c45c26",
   },
   logoutBtn: {
     ...baseBtn,
-    background: "#7f1d1d",
+    background: "var(--danger)",
   },
 };

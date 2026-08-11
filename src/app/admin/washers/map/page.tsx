@@ -106,7 +106,7 @@ export default function LiveWashersMapPage() {
       style={{
         width: "100%",
         minHeight: "100vh",
-        background: "#0b0f19",
+        background: "transparent",
         padding: 16,
         boxSizing: "border-box",
       }}
@@ -119,7 +119,7 @@ export default function LiveWashersMapPage() {
           borderRadius: 24,
           overflow: "hidden",
           border:
-            "1px solid rgba(255,255,255,0.12)",
+            "1px solid var(--line)",
           boxShadow:
             "0 20px 50px rgba(0,0,0,0.35)",
         }}

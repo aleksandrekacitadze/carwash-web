@@ -120,7 +120,7 @@ export default function AdminOrderMapPage() {
         style={{
           padding: 20,
           color: "white",
-          background: "#0b0f19",
+          background: "transparent",
           minHeight: "100vh",
         }}
       >
@@ -135,7 +135,7 @@ export default function AdminOrderMapPage() {
         style={{
           padding: 20,
           color: "white",
-          background: "#0b0f19",
+          background: "transparent",
           minHeight: "100vh",
         }}
       >
@@ -150,7 +150,7 @@ export default function AdminOrderMapPage() {
         style={{
           padding: 20,
           color: "white",
-          background: "#0b0f19",
+          background: "transparent",
           minHeight: "100vh",
         }}
       >
@@ -164,7 +164,7 @@ export default function AdminOrderMapPage() {
       style={{
         width: "100%",
         minHeight: "100vh",
-        background: "#0b0f19",
+        background: "transparent",
         padding: 16,
         boxSizing: "border-box",
         color: "white",
@@ -216,10 +216,9 @@ export default function AdminOrderMapPage() {
           style={{
             padding: "10px 14px",
             borderRadius: 999,
-            background:
-              "rgba(255,255,255,0.08)",
+            background: "var(--surface-2)",
             border:
-              "1px solid rgba(255,255,255,0.10)",
+              "1px solid var(--line)",
             fontWeight: 700,
             fontSize: 14,
           }}
@@ -236,7 +235,7 @@ export default function AdminOrderMapPage() {
           borderRadius: 24,
           overflow: "hidden",
           border:
-            "1px solid rgba(255,255,255,0.12)",
+            "1px solid var(--line)",
           boxShadow:
             "0 20px 50px rgba(0,0,0,0.35)",
         }}
@@ -287,7 +286,7 @@ export default function AdminOrderMapPage() {
                 ]}
                 options={{
                   strokeColor:
-                    "#3cffb1",
+                    "var(--accent)",
                   strokeOpacity: 1,
                   strokeWeight: 4,
                 }}

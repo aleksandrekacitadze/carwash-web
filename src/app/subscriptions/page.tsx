@@ -209,27 +209,27 @@ window.location.href = res.data.approveUrl;
 }
 
 const S: Record<string, React.CSSProperties> = {
-  page: { minHeight: "100vh", padding: 24, background: "#0b0f19", color: "#fff", fontFamily: "ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial" },
+  page: { minHeight: "100vh", padding: 24, background: "transparent", color: "var(--ink)", fontFamily: "var(--font-sans)" },
   header: { display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 14 },
   title: { margin: 0, fontSize: 28, fontWeight: 950 },
   sub: { marginTop: 6, opacity: 0.85 },
-  btn: { background: "rgba(255,255,255,0.10)", color: "#fff", padding: "10px 12px", borderRadius: 14, fontWeight: 800, textDecoration: "none" },
+  btn: { background: "var(--surface-2)", color: "var(--ink)", padding: "10px 12px", borderRadius: 14, fontWeight: 800, textDecoration: "none" },
 
-  card: { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 18, padding: 16, marginBottom: 14 },
+  card: { background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 18, padding: 16, marginBottom: 14 },
   row: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" },
-  pill: { display: "inline-flex", alignItems: "center", padding: "10px 12px", borderRadius: 999, background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.14)", fontWeight: 900 },
+  pill: { display: "inline-flex", alignItems: "center", padding: "10px 12px", borderRadius: 999, background: "var(--surface-2)", border: "1px solid var(--line)", fontWeight: 900 },
 
   grid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14 },
 
-  planCard: { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 18, padding: 16, position: "relative" },
+  planCard: { background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 18, padding: 16, position: "relative" },
   planTop: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 },
   planName: { fontSize: 18, fontWeight: 950 },
   planCode: { opacity: 0.7, fontWeight: 800, marginTop: 4, fontSize: 12 },
   price: { fontWeight: 950, fontSize: 18 },
 
   meta: { marginTop: 12, opacity: 0.9, display: "grid", gap: 6 },
-  buyBtn: { marginTop: 14, width: "100%", padding: "12px 12px", borderRadius: 14, border: "none", fontWeight: 950, background: "#3cffb1", color: "#061017" },
-  activeTag: { position: "absolute", top: 12, right: 12, padding: "6px 10px", borderRadius: 999, background: "rgba(60,255,177,0.18)", border: "1px solid rgba(60,255,177,0.30)", fontWeight: 900, fontSize: 12, color: "#c8ffe7" },
+  buyBtn: { marginTop: 14, width: "100%", padding: "12px 12px", borderRadius: 14, border: "none", fontWeight: 950, background: "var(--accent)", color: "#fff" },
+  activeTag: { position: "absolute", top: 12, right: 12, padding: "6px 10px", borderRadius: 999, background: "var(--accent-soft)", border: "1px solid var(--line)", fontWeight: 900, fontSize: 12, color: "var(--accent-ink)" },
 
   small: { marginTop: 14, opacity: 0.8, fontSize: 12 },
 };
