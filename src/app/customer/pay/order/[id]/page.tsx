@@ -279,7 +279,7 @@ export default function PayOrderPage() {
     }
   }
 
-  async function payWithKeepz() {
+  async function payWithFlitt() {
   try {
     await unlockAudio();
 
@@ -394,9 +394,7 @@ export default function PayOrderPage() {
 
         orderId: order.id,
 
-        provider: "KEEPZ",
-
-        amount: finalAmount,
+        provider: "FLITT",
 
         currency: "GEL",
       });
@@ -550,12 +548,12 @@ export default function PayOrderPage() {
                 payLoading
               }
               onClick={
-                payWithKeepz
+                payWithFlitt
               }
             >
               {payLoading
                 ? "Creating payment..."
-                : "Pay with KEEPZ"}
+                : "Pay with FLITT"}
             </button>
 
             {checkingPayment ? (

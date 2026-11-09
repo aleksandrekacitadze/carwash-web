@@ -1241,7 +1241,7 @@ async function loadPriceQuote() {
                   {
                     id: "DIRECT" as const,
                     title: "Pay now",
-                    desc: "Card / PayPal — secure checkout",
+                    desc: "Card via Keepz — secure checkout",
                   },
                   {
                     id: "CREDIT" as const,
